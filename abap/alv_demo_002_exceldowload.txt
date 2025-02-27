@@ -1,0 +1,581 @@
+*&---------------------------------------------------------------------*
+*& Report ZZ_ALV_DEMO02
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT z_alv_8700_test001.
+
+TABLES:icon,sscrfields.
+
+TYPES:
+  BEGIN OF ty_s_excel,
+    key   TYPE char10,    "哪些行是同一张伝票
+    bukrs TYPE char50,   "会社コード     接受时候先用char
+    blart TYPE char50,   "伝票タイプ
+    bktxt TYPE char50,   "伝票ヘッダテキスト
+    posnr TYPE char50,   "明細番号
+    waers TYPE char50,   "通貨コード
+    wrbtr TYPE char50,   "伝票通貨額
+    hkont TYPE char50,   "勘定コード
+  END OF ty_s_excel,
+  ty_t_excel TYPE STANDARD TABLE OF ty_s_excel,
+
+  BEGIN OF ty_s_alv,
+    zlight TYPE   char4,
+    zmsg   TYPE char220,
+    key    TYPE char32,
+*    ksey  TYPE char10,     "哪些行是同一张伝票
+    bukrs  TYPE bkpf-bukrs,   "会社コード
+    blart  TYPE bkpf-blart,   "伝票タイプ
+    bktxt  TYPE bkpf-bktxt,   "伝票ヘッダテキスト
+    posnr  TYPE bseg-posnr,   "明細番号
+    waers  TYPE bseg-h_waers,   "通貨コード
+    wrbtr  TYPE bseg-wrbtr,   "伝票通貨額
+    hkont  TYPE bseg-hkont,   "勘定コード
+  END OF ty_s_alv,
+  ty_t_alv TYPE STANDARD TABLE OF ty_s_alv.
+
+DATA: gs_layout_lvc TYPE  lvc_s_layo,
+      gt_fcat       TYPE lvc_t_fcat,
+      gt_alv        TYPE ty_t_alv,
+      gs_functxt    TYPE smp_dyntxt.
+
+SELECTION-SCREEN FUNCTION KEY:1.
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE TEXT-t01.
+
+  PARAMETERS: p_path TYPE rlgrap-filename.
+
+SELECTION-SCREEN END OF BLOCK b1.
+
+INITIALIZATION."初期化
+
+  gs_functxt-icon_id    = icon_export."テキスト項目内アイコン (照会置換、別名
+*  gs_functxt-quickinfo  = TEXT-t02."伝票転記のテンプレート
+*  gs_functxt-icon_text  = TEXT-t02."伝票転記のテンプレート
+  gs_functxt-quickinfo  = '伝票転記のテンプレートquickinfo'.
+  gs_functxt-icon_text  = '伝票転記のテンプレートicon_text'.
+  sscrfields-functxt_01 = gs_functxt."選択画面上項目
+
+AT SELECTION-SCREEN OUTPUT."屏幕出现前
+
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR p_path. "F4
+  PERFORM frm_f4_help CHANGING p_path.
+
+AT SELECTION-SCREEN."屏幕出现后
+  IF sscrfields-ucomm = 'FC01'."功能码
+
+    PERFORM prm_down_excel.
+
+  ENDIF.
+
+START-OF-SELECTION.
+
+  PERFORM prm_main.
+
+*&---------------------------------------------------------------------*
+*& Form frm_f4_help
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&      <-- P_PATH
+*&---------------------------------------------------------------------*
+FORM frm_f4_help  CHANGING cv_path TYPE rlgrap-filename.
+
+  DATA: lt_file_table       TYPE filetable,
+        lw_file_table       TYPE file_table,
+        lv_rc               TYPE i,
+        lc_file_filter      TYPE string VALUE 'Excel(*.xlsx)',
+        lc_window_title     TYPE string,
+        lc_default_filename TYPE string VALUE '*.XLSX'.
+
+  lc_window_title = TEXT-t01.
+
+* 前端服务=》打开文件  类方法
+  CALL METHOD cl_gui_frontend_services=>file_open_dialog
+    EXPORTING
+      window_title            = lc_window_title      " 文件打开对话框的标题
+      default_filename        = lc_default_filename  " 默认excel文件"
+*     initial_directory       = ''                   " 默认打开D盘，也可以默认空"D:\
+*     multiselection          = ''                   " 文件单选"
+      file_filter             = lc_file_filter       " 文件扩展名过滤字符串
+    CHANGING
+      file_table              = lt_file_table        "存储路径信息
+      rc                      = lv_rc                "文件选择数量
+    EXCEPTIONS
+      file_open_dialog_failed = 1
+      cntl_error              = 2
+      error_no_gui            = 3
+      not_supported_by_gui    = 4
+      OTHERS                  = 5.
+
+  IF sy-subrc = 0."CASE 正常系
+
+    READ TABLE lt_file_table INDEX 1 INTO DATA(ls_file_table).
+
+    cv_path = ls_file_table.
+
+  ELSE."CASE 异常系
+
+* 不处理
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form prm_down_excel
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM prm_down_excel .
+
+  DATA:lc_file_filter      TYPE string VALUE 'Excel(*.xlsx)' ##NO_TEXT,
+       lc_default_filename TYPE string VALUE '*.XLSX'.
+  DATA:lc_window_title TYPE string .
+  DATA:
+    lo_objdata  TYPE wwwdatatab,
+    lV_rc       TYPE sy-subrc,
+    lv_fname    TYPE rlgrap-filename,
+    LV_filename TYPE string,
+    LV_path     TYPE string,
+    LV_fullpath TYPE string.
+
+*  lc_window_title = TEXT-t01.
+  lc_window_title = 'ファイルを選択T01'.
+
+* 前端服务=》打开文件
+  CALL METHOD cl_gui_frontend_services=>file_save_dialog
+    EXPORTING
+      window_title              = lc_window_title      " 文件打开对话框的标题
+      default_file_name         = lc_default_filename  " 默认excel文件"
+      file_filter               = lc_file_filter       " 文件扩展名过滤字符串
+    CHANGING
+      filename                  = LV_filename
+      path                      = LV_path
+      fullpath                  = LV_fullpath
+    EXCEPTIONS
+      cntl_error                = 1
+      error_no_gui              = 2
+      not_supported_by_gui      = 3
+      invalid_default_file_name = 4
+      OTHERS                    = 5.
+
+  IF sy-subrc = 0."成功的场合
+    SELECT SINGLE relid,
+                  objid
+      INTO CORRESPONDING FIELDS OF @lo_objdata "根据字段名取匹配
+      FROM wwwdata
+      WHERE srtf2 = 0
+        AND relid = 'MI'
+        AND objid = 'ZFI002'.    " object id
+
+    IF sy-subrc = 0.
+      lv_fname = LV_fullpath.
+      CALL FUNCTION 'DOWNLOAD_WEB_OBJECT'
+        EXPORTING
+          key         = lo_objdata
+          destination = lv_fname
+        IMPORTING
+          rc          = lV_rc.
+
+      IF lV_rc = 0.    "sy-subrc = 0也可以
+
+      ELSE.
+*         MESSAGE E000.
+        MESSAGE e000(zzfi002).
+      ENDIF.
+
+
+
+    ENDIF.
+
+  ELSE.
+
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form prm_main
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM prm_main.
+  DATA:lt_excel TYPE ty_t_excel.
+
+  PERFORM frm_upload_excel CHANGING lt_excel.
+
+  PERFORM frm_check_data USING lt_excel CHANGING gt_alv.
+
+  PERFORM frm_display_data USING gt_alv.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form frm_upload_excel
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&      <-- LT_EXCEL
+*&---------------------------------------------------------------------*
+FORM frm_upload_excel  CHANGING ct_excel TYPE ty_t_excel.
+
+  DATA:ls_excel    TYPE ty_s_excel,
+       lv_filename TYPE rlgrap-filename,
+       lv_intern   TYPE STANDARD TABLE OF alsmex_tabline.
+
+  lv_filename = p_path.
+
+
+
+  "上载excel数据
+  CALL FUNCTION 'ALSM_EXCEL_TO_INTERNAL_TABLE'
+    EXPORTING
+      filename                = lv_filename   "文件路径
+      i_begin_col             = 1           "开始列
+      i_begin_row             = 2            "开始行
+      i_end_col               = 8            "结束列
+      i_end_row               = 999          "结束行
+    TABLES
+      intern                  = lv_intern
+    EXCEPTIONS
+      inconsistent_parameters = 1
+      upload_ole              = 2
+      OTHERS                  = 3.
+  IF sy-subrc <> 0.
+* Implement suitable error handling here
+  ENDIF.
+
+  LOOP AT lv_intern ASSIGNING FIELD-SYMBOL(<lfs_intern>).
+
+    CASE <lfs_intern>-col.
+      WHEN 1.
+        ls_excel-key = <lfs_intern>-value.
+      WHEN 2.
+        ls_excel-bukrs = <lfs_intern>-value.
+      WHEN 3.
+        ls_excel-blart = <lfs_intern>-value.
+      WHEN 4.
+        ls_excel-bktxt = <lfs_intern>-value.
+      WHEN 5.
+        ls_excel-posnr = <lfs_intern>-value.
+      WHEN 6.
+        ls_excel-waers = <lfs_intern>-value.
+      WHEN 7.
+        ls_excel-wrbtr = <lfs_intern>-value.
+      WHEN 8.
+        ls_excel-hkont = <lfs_intern>-value.
+
+      WHEN OTHERS.
+    ENDCASE.
+
+    AT END OF row.
+      APPEND ls_excel TO ct_excel.
+      CLEAR ls_excel.
+    ENDAT.
+
+  ENDLOOP.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form frm_check_data
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&      --> LT_EXCEL
+*&      <-- GT_ALV
+*&---------------------------------------------------------------------*
+FORM frm_check_data  USING    ut_excel TYPE ty_t_excel
+                     CHANGING ct_alv  TYPE ty_t_alv.
+
+  DATA: ls_alv TYPE ty_s_alv.
+
+  LOOP AT ut_excel ASSIGNING FIELD-SYMBOL(<lfs_excel>).
+
+    IF <lfs_excel>-bukrs <> 'H190'.
+      MESSAGE '公司代码只能填写H190' TYPE 'S' DISPLAY LIKE 'E'.
+      DATA(lv_eflg) = abap_true.
+      EXIT.
+    ENDIF.
+
+
+
+    MOVE-CORRESPONDING <lfs_excel> TO ls_alv.
+    APPEND ls_alv TO ct_alv.
+    CLEAR ls_alv.
+  ENDLOOP.
+  IF lv_eflg = abap_true.
+    LEAVE LIST-PROCESSING.
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form frm_display_data
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&      --> GT_ALV
+*&---------------------------------------------------------------------*
+FORM frm_display_data  USING ut_alv TYPE ty_t_alv.
+
+  PERFORM frm_get_fieldcat CHANGING gt_fcat.
+
+* 设定leyout:设定表单样式
+  gs_layout_lvc-cwidth_opt = abap_true.  " 列幅の最適化
+  gs_layout_lvc-zebra      = abap_true.  " 交代行色 (ストライプ)
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY_LVC'
+    EXPORTING
+      i_callback_program       = sy-cprog "程序ID
+      i_callback_pf_status_set = 'FRM_STATUS_SET' "自定义功能栏
+      i_callback_user_command  = 'FRM_USER_COMMAND' "相应自定义功能
+      is_layout_lvc            = gs_layout_lvc "可有可无
+      it_fieldcat_lvc          = gt_fcat "一定要设定
+      i_save                   = 'A'
+    TABLES
+      t_outtab                 = Ut_alv " ALV内表
+    EXCEPTIONS
+      program_error            = 1
+      OTHERS                   = 2.
+
+  IF sy-subrc <> 0.
+* Implement suitable error handling here
+  ENDIF.
+
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  FRM_PF_STATUS
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM frm_status_set USING pt_extab TYPE slis_t_extab .
+  SET PF-STATUS 'Z001' .
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  FRM_USER_COMMAND
+*&---------------------------------------------------------------------*
+*       自定义的用户命令处理
+*----------------------------------------------------------------------*
+*      -->PV_UCOMM      用户命令类型
+*      -->PS_SELFIELD  用户命令信息
+*----------------------------------------------------------------------*
+FORM frm_user_command USING pv_ucomm TYPE sy-ucomm
+      ps_selfield TYPE slis_selfield.
+
+  CASE pv_ucomm.
+
+    WHEN 'ZPOST'.
+* 过账
+      PERFORM frm_POST.
+* alv刷新
+      PERFORM FRM_refresh_ALV.
+
+    WHEN OTHERS.
+  ENDCASE.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form frm_get_fieldcat
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&      <-- GT_FCAT
+*&---------------------------------------------------------------------*
+FORM frm_get_fieldcat  CHANGING ct_fcat TYPE lvc_t_fcat.
+
+  "获取fieldcat:设定字段属性
+  CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
+    EXPORTING
+      i_structure_name       = 'ZWMQ_FIS001'
+*     I_CLIENT_NEVER_DISPLAY = 'X'
+*     I_BYPASSING_BUFFER     =
+*     I_INTERNAL_TABNAME     =
+    CHANGING
+      ct_fieldcat            = ct_fcat
+    EXCEPTIONS
+      inconsistent_interface = 1
+      program_error          = 2
+      OTHERS                 = 3.
+*再编辑fieldcat
+  LOOP AT ct_fcat ASSIGNING FIELD-SYMBOL(<lfs_fcat>).
+    IF <lfs_fcat>-fieldname = 'ZLIGHT'
+      OR <lfs_fcat>-fieldname = 'ZMSG'.
+      <lfs_fcat>-no_out = abap_true.
+    ENDIF.
+  ENDLOOP.
+
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form frm_POST
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM frm_POST .
+
+  DATA: lv_msgtxt         TYPE  bapi_msg,
+        lv_obj_type       TYPE  bapiache09-obj_type,
+        lv_obj_key        TYPE  bapiache09-obj_key,
+        lv_obj_sys        TYPE  bapiache09-obj_sys,
+        lt_return         TYPE TABLE OF  bapiret2,
+        lt_currencyamount TYPE STANDARD TABLE OF bapiaccr09,
+        ls_currencyamount TYPE  bapiaccr09,
+        lt_accountgl      TYPE TABLE OF  bapiacgl09,
+        ls_accountgl      TYPE bapiacgl09,
+        ls_documentheader TYPE bapiache09.
+
+
+  LOOP AT gt_alv INTO DATA(ls_alv)
+    GROUP BY ( key = ls_alv-key )"分组条件
+    ASSIGNING FIELD-SYMBOL(<lsf_group>)."组
+
+    LOOP AT GROUP <lsf_group> ASSIGNING FIELD-SYMBOL(<lfs_alv>).
+* 伝票ヘッダ
+      ls_documentheader-comp_code  = <lfs_alv>-bukrs. " 会社コード
+      ls_documentheader-doc_type   = <lfs_alv>-blart. " 伝票タイプ
+      ls_documentheader-header_txt = <lfs_alv>-bktxt. " 伝票ヘッダテキスト
+      ls_documentheader-doc_date   = sy-datum. "伝票の伝票日付
+      ls_documentheader-pstng_date = sy-datum. "伝票の転記日付
+      ls_documentheader-username   = sy-uname. "ユーザ名
+      ls_documentheader-doc_status = '4'. "伝票ステータス
+
+*勘定コード明細
+      ls_accountgl-itemno_acc = <lfs_alv>-posnr. "明細番号
+      ls_accountgl-gl_account = <lfs_alv>-hkont. "総勘定元帳勘定
+      APPEND ls_accountgl TO lt_accountgl.
+      CLEAR ls_accountgl.
+
+      ls_currencyamount-itemno_acc = <lfs_alv>-posnr."明細番号
+      ls_currencyamount-amt_doccur = <lfs_alv>-wrbtr."伝票通貨額
+      ls_currencyamount-currency   = <lfs_alv>-waers."通貨コード
+      APPEND ls_currencyamount TO lT_currencyamount.
+      CLEAR ls_currencyamount.
+
+    ENDLOOP.
+
+*创建会计凭证
+    CALL FUNCTION 'BAPI_ACC_DOCUMENT_POST' " FB01 F-01
+      EXPORTING
+        documentheader = ls_documentheader
+      IMPORTING
+        obj_type       = lv_obj_type
+        obj_key        = lv_obj_key
+        obj_sys        = lv_obj_sys
+      TABLES
+        accountgl      = lt_accountgl
+        currencyamount = lt_currencyamount
+        return         = lt_return.
+
+    LOOP AT lt_return ASSIGNING FIELD-SYMBOL(<lfs_return>)
+      WHERE type = 'E' OR type =  'A'.
+
+      CONCATENATE lv_msgtxt <lfs_return>-message
+      INTO lv_msgtxt SEPARATED BY '/'.
+    ENDLOOP.
+
+    IF sy-subrc = 0.
+
+*回滚
+      CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
+
+      LOOP AT GROUP <lsf_group> ASSIGNING <lfs_alv>.
+        <lfs_alv>-zmsg = lv_msgtxt.
+        <lfs_alv>-zlight = icon_red_light.
+      ENDLOOP.
+
+    ELSE.
+
+*     提交
+      CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
+        EXPORTING
+          wait = 'X'.
+
+
+      LOOP AT GROUP <lsf_group> ASSIGNING <lfs_alv>.
+        <lfs_alv>-zmsg = lv_obj_key.
+        <lfs_alv>-zlight = icon_green_light.
+      ENDLOOP.
+
+    ENDIF.
+    CLEAR:ls_documentheader,"用过的参数clear
+      lv_obj_type,
+      lv_obj_key,
+      lv_obj_sys,
+      lt_accountgl,
+      lT_currencyamount,
+      lt_return,
+      lv_msgtxt.
+
+
+  ENDLOOP.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form FRM_refresh_ALV
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM FRM_refresh_ALV .
+
+  DATA:
+    ls_stable TYPE lvc_s_stbl,
+    lr_grid   TYPE REF TO cl_gui_alv_grid.
+
+* 获取alv对象信息
+  CALL FUNCTION 'GET_GLOBALS_FROM_SLVC_FULLSCR'
+    IMPORTING
+      e_grid = lr_grid.
+
+* 获取alv 已设定的fieldcat
+  CALL METHOD lr_grid->Get_frontend_fieldcatalog
+    IMPORTING
+      et_fieldcatalog = Gt_fcat.
+
+* 重新编辑fieldcat
+  LOOP AT Gt_fcat ASSIGNING FIELD-SYMBOL(<LFS_fcat>).
+    IF <LFS_fcat>-fieldname = 'ZLIGHT' "红绿灯
+      OR <LFS_fcat>-fieldname = 'ZMSG'."消息内容
+      <LFS_fcat>-no_out = space."SAPCE '' ” 列は出力されません
+    ENDIF.
+  ENDLOOP.
+
+* 重新设定alv fieldcat
+  CALL METHOD lr_grid->set_frontend_fieldcatalog
+    EXPORTING
+      it_fieldcatalog = Gt_fcat.
+
+* 获取alv layout
+  CALL METHOD lr_grid->Get_frontend_layout
+    IMPORTING
+      es_layout = gs_layout_lvc.
+
+* 重新编辑
+  gs_layout_lvc-cwidth_opt = 'X'.
+  gs_layout_lvc-zebra = 'X'.
+
+* 重新设定alv layout
+  CALL METHOD lr_grid->set_frontend_layout
+    EXPORTING
+      IS_layout = gs_layout_lvc.
+
+* 刷新alv(基于行列的稳定刷新)
+  ls_stable-col = 'X'."列
+  ls_stable-row = 'X'."行
+
+* gt_alv内表 将更新后的数据刷新显示到ALV
+  CALL METHOD lr_grid->refresh_table_display
+    EXPORTING
+      is_stable = ls_stable.
+
+
+ENDFORM.

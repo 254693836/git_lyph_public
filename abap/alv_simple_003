@@ -1,0 +1,192 @@
+**************************************一番簡単なdemo**************************************
+REPORT zly_report.
+
+********* ALV 报表示例 **************************************
+* 本程序展示如何使用 ALV 输出 EKKO 表的数据。
+* 主要包含以下部分：
+* 1. 数据定义部分：定义全局变量，包括表、结构、工作区等。
+* 2. 选择屏幕定义部分：定义选择屏幕参数。
+* 3. 数据处理部分：查询 EKKO 数据并进行处理。
+* 4. 字段目录设置：定义 ALV 输出字段及属性。
+* 5. 数据展示：调用 ALV 函数显示数据。
+* 6. 功能处理：ALV 交互相关功能。
+**********************************************************
+
+********* 数据定义部分 **************************************
+TABLES: ekko. " 采购订单头表
+
+TYPES: BEGIN OF ty_show,
+        ebeln TYPE ekko-ebeln, " 采购订单号
+        bukrs TYPE ekko-bukrs, " 公司代码
+        bstyp TYPE ekko-bstyp, " 采购凭证类型
+        bsart TYPE ekko-bsart, " 采购订单类型
+        loekz TYPE ekko-loekz, " 删除标识
+        ekorg TYPE ekko-ekorg, " 采购组织
+        ekgrp TYPE ekko-ekgrp, " 采购组
+        lifnr TYPE ekko-lifnr, " 供应商编号
+        bedat TYPE ekko-bedat, " 采购订单日期
+        waers TYPE ekko-waers, " 货币码
+      END OF ty_show.
+
+DATA: gt_show   TYPE TABLE OF ty_show, " 显示的 ALV 内表
+      gw_show   LIKE LINE OF gt_show. " 工作区
+
+DATA: gt_fieldcat TYPE lvc_t_fcat, " 字段目录
+      gs_fieldcat LIKE LINE OF gt_fieldcat, " 字段目录工作区
+      ls_layout   TYPE lvc_s_layo. " ALV 布局
+
+DATA: lr_grid TYPE REF TO cl_gui_alv_grid. " ALV Grid 对象
+
+DATA: gt_event TYPE slis_t_event, " 事件表
+      gw_event LIKE LINE OF gt_event.
+
+DATA: gw_grid_setting TYPE lvc_s_glay. " ALV 设置
+
+DEFINE append_fieldcat.
+  CLEAR gs_fieldcat.
+  gs_fieldcat-fieldname = &1. " 字段名
+  gs_fieldcat-scrtext_l = &2. " 显示描述
+  gs_fieldcat-outputlen = &3. " 输出长度
+  gs_fieldcat-no_zero = &4. " 不显示前导 0
+  APPEND gs_fieldcat TO gt_fieldcat.
+END-OF-DEFINITION.
+
+********* 选择屏幕 **************************************
+SELECTION-SCREEN: BEGIN OF BLOCK blk01 WITH FRAME TITLE text-001.
+SELECT-OPTIONS: s_ebeln FOR ekko-ebeln, " 采购订单号
+                s_bukrs FOR ekko-bukrs, " 公司代码
+                s_bsart FOR ekko-bsart, " 采购订单类型
+                s_lifnr FOR ekko-lifnr. " 供应商编号
+SELECTION-SCREEN END OF BLOCK blk01.
+
+********* 主程序逻辑 **************************************
+START-OF-SELECTION.
+  PERFORM frm_get_data. " 数据查询
+  PERFORM frm_set_field. " 设置字段目录
+  PERFORM frm_show. " 显示数据
+
+FORM frm_get_data.
+  SELECT ebeln bukrs bstyp bsart loekz ekorg ekgrp lifnr bedat waers
+    INTO TABLE gt_show
+    FROM ekko
+    WHERE ebeln IN s_ebeln
+      AND bukrs IN s_bukrs
+      AND bsart IN s_bsart
+      AND lifnr IN s_lifnr
+    .
+ENDFORM.
+
+FORM frm_set_field.
+  append_fieldcat: 'EBELN' '采购订单号' 10 'X',
+                   'BUKRS' '公司代码' 4 '',
+                   'BSTYP' '采购凭证类型' 4 '',
+                   'BSART' '采购订单类型' 4 '',
+                   'LOEKZ' '删除标识' 1 '',
+                   'EKORG' '采购组织' 4 '',
+                   'EKGRP' '采购组' 3 '',
+                   'LIFNR' '供应商编号' 10 'X',
+                   'BEDAT' '采购订单日期' 10 '',
+                   'WAERS' '货币' 5 ''.
+
+  ls_layout-cwidth_opt = 'X'. " 优化列宽
+  ls_layout-zebra = 'X'. " 斑马线显示
+ENDFORM.
+
+FORM frm_show.
+  DATA: lr_alv TYPE REF TO cl_salv_table.
+  TRY.
+      cl_salv_table=>factory( IMPORTING r_salv_table = lr_alv
+                              CHANGING  t_table      = gt_show ).
+      lr_alv->display( ).
+  CATCH cx_salv_msg.
+      MESSAGE 'ALV 显示错误' TYPE 'E'.
+  ENDTRY.
+ENDFORM.
+
+***************************************alv上の標準な操作がある*********************************
+REPORT zly_report.
+
+
+TABLES: ekko.
+
+DATA: gt_ekko TYPE TABLE OF ekko,
+      gs_ekko TYPE ekko.
+
+DATA: gt_fieldcat TYPE slis_t_fieldcat_alv,
+      gs_fieldcat TYPE slis_fieldcat_alv,
+      gt_events   TYPE slis_t_event,
+      gs_events   TYPE slis_alv_event,
+      gv_repid    TYPE sy-repid.
+
+gv_repid = sy-repid.
+
+SELECT * FROM ekko INTO TABLE gt_ekko UP TO 100 ROWS.
+
+PERFORM build_field_catalog.
+PERFORM display_alv.
+
+FORM build_field_catalog.
+  CLEAR gs_fieldcat.
+  gs_fieldcat-fieldname = 'EBELN'.  " 采购凭证号
+  gs_fieldcat-seltext_m = '采购凭证001'.
+  APPEND gs_fieldcat TO gt_fieldcat.
+
+  CLEAR gs_fieldcat.
+  gs_fieldcat-fieldname = 'BUKRS'.  " 公司代码
+  gs_fieldcat-seltext_m = '公司代码'.
+  APPEND gs_fieldcat TO gt_fieldcat.
+
+  CLEAR gs_fieldcat.
+  gs_fieldcat-fieldname = 'BSTYP'.  " 采购凭证类别
+  gs_fieldcat-seltext_m = '凭证类别'.
+  APPEND gs_fieldcat TO gt_fieldcat.
+
+  CLEAR gs_fieldcat.
+  gs_fieldcat-fieldname = 'BSART'.  " 采购凭证类型
+  gs_fieldcat-seltext_m = '凭证类型'.
+  APPEND gs_fieldcat TO gt_fieldcat.
+
+  CLEAR gs_fieldcat.
+  gs_fieldcat-fieldname = 'LIFNR'.  " 供应商
+  gs_fieldcat-seltext_m = '供应商'.
+  APPEND gs_fieldcat TO gt_fieldcat.
+
+  CLEAR gs_fieldcat.
+  gs_fieldcat-fieldname = 'EKORG'.  " 采购组织
+  gs_fieldcat-seltext_m = '采购组织'.
+  APPEND gs_fieldcat TO gt_fieldcat.
+
+  CLEAR gs_fieldcat.
+  gs_fieldcat-fieldname = 'EKGRP'.  " 采购组
+  gs_fieldcat-seltext_m = '采购组'.
+  APPEND gs_fieldcat TO gt_fieldcat.
+
+  CLEAR gs_fieldcat.
+  gs_fieldcat-fieldname = 'BEDAT'.  " 采购凭证日期
+  gs_fieldcat-seltext_m = '凭证日期'.
+  APPEND gs_fieldcat TO gt_fieldcat.
+ENDFORM.
+
+FORM display_alv.
+  DATA: lt_sort TYPE slis_t_sortinfo_alv,
+        ls_sort TYPE slis_sortinfo_alv.
+
+  CLEAR ls_sort.
+  ls_sort-spos = 1.
+  ls_sort-fieldname = 'EBELN'.
+  ls_sort-up = 'X'.
+  APPEND ls_sort TO lt_sort.
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      i_callback_program = gv_repid
+      it_fieldcat        = gt_fieldcat
+      it_sort            = lt_sort
+    TABLES
+      t_outtab           = gt_ekko.
+ENDFORM.
+
+
+
+
+

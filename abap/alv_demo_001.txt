@@ -1,0 +1,1020 @@
+REPORT  ztest_alv_demo.
+TYPE-POOLS:slis.
+
+CONSTANTS:gc_inactive TYPE icon       VALUE '@BZ@',   " ICON_LED_INACTIVE
+          gc_red      TYPE icon       VALUE '@5C@',   " ICON_LED_RED
+          gc_yellow   TYPE icon       VALUE '@5D@',   " ICON_LED_YELLOW
+          gc_green    TYPE icon       VALUE '@5B@'.   " ICON_LED_GREEN
+
+TYPES: BEGIN OF ty_sbook,
+         mandt        LIKE sbook-mandt,
+         carrid       LIKE sbook-carrid,
+         connid       LIKE sbook-connid,
+         fldate       LIKE sbook-fldate,
+         bookid       LIKE sbook-bookid,
+         luggweight   LIKE sbook-luggweight,
+         wunit        LIKE sbook-wunit,
+         class        LIKE sbook-class,
+         loccuram     LIKE sbook-loccuram,
+         loccurkey    LIKE sbook-loccurkey,
+         order_date   LIKE sbook-order_date,
+         counter      LIKE sbook-counter,
+         cancelled    LIKE sbook-cancelled,         " 复选框（编辑状态下显示复选框，需设置 Fieldcat-Checkbox）
+         passname     LIKE sbook-passname,
+         passbirth    LIKE sbook-passbirth,
+         sex(1),                                   " 展示下拉框
+         sel          TYPE xflag,                   " 选择框（设置 Layout-box_fname，无需设置 Fieldcat）
+         icon         TYPE icon_d,                  " 图标（无需设置，直接显示成图标）,也可以定义为：icon(4)
+         iconname     TYPE iconname,                " 图标名称演示（文本值，具体可以参考数据字典ICON表）
+         iconiname    TYPE icon_int,                " 图标内部名称（无需设置，直接显示成图标）,也可以定义为：iconiname(8)
+         excp(1),                                  " 交通灯图标（需设置 Layout-excp_fname，才能显示图标）
+*                                                     值   Light(EXCP_LED = '')          LED(EXCP_LED = 'X')
+*                                                     0     熄灯 @EB@ ICON_LIGHT_OUT      熄灯 @BZ@ ICON_LED_INACTIVE
+*                                                     1     红灯 @0A@  ICON_RED_LIGHT     红灯 @5C@ ICON_LED_RED
+*                                                     2     黄灯 @09@ ICON_YELLOW_LIGHT   黄三角 @5D@ ICON_LED_YELLOW
+*                                                     3     绿灯 @08@  ICON_GREEN_LIGHT   绿方块 @5B@ ICON_LED_GREEN
+         rowcolor(4),                              " 行颜色，设置 layout-info_fname 后，不显示该字段值
+         rclrvalue(4),                             " 行颜色值演示，另外定义一个，用于显示值
+         colortab     TYPE lvc_t_scol,              " 单元格颜色
+         styletab     TYPE lvc_t_styl,              " 单元格样式，如单元格编辑、按钮等
+       END OF ty_sbook,
+       tt_sbook TYPE TABLE OF ty_sbook.
+DATA: gt_sbook      TYPE tt_sbook WITH HEADER LINE.
+
+DATA: gt_colortab TYPE lvc_t_scol WITH HEADER LINE,         " 单元格颜色
+      gt_styletab TYPE lvc_t_styl WITH HEADER LINE.         " 单元格编辑
+
+DATA: gt_fieldcat   TYPE lvc_t_fcat WITH HEADER LINE,         " 字段目录
+      gs_layout     TYPE lvc_s_layo,                          " 表格布局
+      gt_sort       TYPE lvc_t_sort WITH HEADER LINE,         " 排序&分类汇总
+      gt_event_exit TYPE slis_t_event_exit WITH HEADER LINE,  " 预置按钮出口
+      gt_exclude    TYPE slis_t_extab WITH HEADER LINE,       " 排除标准工具栏按钮
+      gt_event      TYPE slis_t_event WITH HEADER LINE,       " ALV事件
+      gs_setting    TYPE lvc_s_glay,                          " 表格设置
+      gs_print      TYPE lvc_s_prnt.                          " 打印设置（还没弄明白）
+
+DATA: gt_dropdown TYPE lvc_t_drop,                            " 下拉框项，按Handle分组，对应Fieldcat-DRDN_HNDL
+      gs_dropdown TYPE lvc_s_drop.
+
+*用DEFINITION DEFERRED让程序提前知道类 LCL_EVENT_RECEIVER 避免编译错误。
+CLASS lcl_event_receiver DEFINITION DEFERRED.
+
+* 结合OO ALV的应用
+*----------------------------------------------------------------------*
+*       CLASS lcl_event_receiver DEFINITION
+*----------------------------------------------------------------------*
+*       OO ALV 事件处理方法定义
+*----------------------------------------------------------------------*
+CLASS lcl_event_receiver DEFINITION .
+  PUBLIC SECTION.
+    METHODS: handle_data_changed    " 值变更事件
+      FOR EVENT data_changed OF cl_gui_alv_grid
+      IMPORTING er_data_changed.
+ENDCLASS.                    "LCL_ALV_RECEIVER DEFINITION
+
+*----------------------------------------------------------------------*
+*       CLASS lcl_event_receiver IMPLEMENTATION
+*----------------------------------------------------------------------*
+*
+*----------------------------------------------------------------------*
+CLASS lcl_event_receiver IMPLEMENTATION.
+  METHOD handle_data_changed.
+    PERFORM frm_data_changed USING er_data_changed.
+  ENDMETHOD.                    "handle_data_changed
+ENDCLASS.                    "LCL_GRID_EVENT_RECEIVER IMPLEMENTATION
+
+
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE TEXT-b01. " 基本设置
+  PARAMETERS: p_sel,                                " 选择模式：A、B、C、D
+              p_title AS CHECKBOX,                  " 显示ALV标题
+              p_text  TYPE string DEFAULT 'ALV标题'. " 自定义ALV标题
+  PARAMETERS: p_edit AS CHECKBOX,                   " 显示编辑模式
+              p_icon AS CHECKBOX.                   " 显示图标
+SELECTION-SCREEN END OF BLOCK b1.
+
+SELECTION-SCREEN BEGIN OF BLOCK b2 WITH FRAME TITLE TEXT-b02. " 样式设置
+  PARAMETERS: p_excp  AS CHECKBOX.                  " 显示交通灯
+  SELECTION-SCREEN BEGIN OF LINE.
+    SELECTION-SCREEN POSITION 3.
+    PARAMETERS: p_light RADIOBUTTON GROUP 1.
+    SELECTION-SCREEN COMMENT 5(10) TEXT-s01.          " 交通灯样式
+    SELECTION-SCREEN POSITION 18.
+    PARAMETERS: p_led RADIOBUTTON GROUP 1.
+    SELECTION-SCREEN COMMENT 20(10) TEXT-s02.         " LED样式
+  SELECTION-SCREEN END OF LINE.
+
+  PARAMETERS: p_color AS CHECKBOX.                  " 显示颜色
+  SELECTION-SCREEN BEGIN OF LINE.
+    SELECTION-SCREEN POSITION 3.
+    PARAMETERS: p_col RADIOBUTTON GROUP 2.
+    SELECTION-SCREEN COMMENT 5(10) TEXT-s03.          " 列颜色
+    SELECTION-SCREEN POSITION 18.
+    PARAMETERS: p_row RADIOBUTTON GROUP 2.
+    SELECTION-SCREEN COMMENT 20(10) TEXT-s04.         " 行颜色
+    SELECTION-SCREEN POSITION 33.
+    PARAMETERS: p_cell RADIOBUTTON GROUP 2.
+    SELECTION-SCREEN COMMENT 35(10) TEXT-s05.         " 单元格颜色
+    SELECTION-SCREEN POSITION 48.
+    PARAMETERS: p_all RADIOBUTTON GROUP 2.
+    SELECTION-SCREEN COMMENT 50(10) TEXT-s06.         " 所有颜色
+  SELECTION-SCREEN END OF LINE.
+SELECTION-SCREEN END OF BLOCK b2.
+
+SELECTION-SCREEN BEGIN OF BLOCK b3 WITH FRAME TITLE TEXT-b03. " 其他设置
+  PARAMETERS: p_sort AS CHECKBOX.
+  PARAMETERS: p_ex AS CHECKBOX.     " 显示所有工具栏按钮
+  PARAMETERS: p_tt AS CHECKBOX.     " 显示表头表尾
+  PARAMETERS: p_height TYPE i DEFAULT 10.
+  PARAMETERS: p_dialog AS CHECKBOX. " 以对话框显示
+SELECTION-SCREEN END OF BLOCK b3.
+
+INITIALIZATION.
+
+START-OF-SELECTION.
+  PERFORM frm_get_data.
+  PERFORM frm_handle_data.
+
+END-OF-SELECTION.
+  PERFORM frm_build_layout.
+  PERFORM frm_build_fieldcat.
+  PERFORM frm_build_others.
+  PERFORM frm_show_alv.
+
+
+*&---------------------------------------------------------------------*
+*&      Form  frm_get_data
+*&---------------------------------------------------------------------*
+*       ALV数据获取
+*----------------------------------------------------------------------*
+FORM frm_get_data.
+  SELECT * FROM sbook
+    INTO CORRESPONDING FIELDS OF TABLE gt_sbook
+    UP TO 40 ROWS.
+ENDFORM.                    "get_data
+
+*&---------------------------------------------------------------------*
+*&      Form  frm_handle_data
+*&---------------------------------------------------------------------*
+*       ALV数据处理
+*----------------------------------------------------------------------*
+FORM frm_handle_data.
+  FIELD-SYMBOLS:<fs_sbook> LIKE LINE OF gt_sbook.
+  DATA: lv_index TYPE i, lv_mod TYPE i.
+
+  LOOP AT gt_sbook ASSIGNING <fs_sbook>.
+    lv_index = sy-tabix.
+    lv_mod = ( lv_index - 1 ) MOD 4.
+
+*  1、演示EXCP列：
+*         0-熄灯，@EB@ ICON_LIGHT_OUT，1-红灯，@0A@  ICON_RED_LIGHT
+*         2-黄灯，@09@ ICON_YELLOW_LIGHT，3-绿灯，@08@	ICON_GREEN_LIGHT
+    <fs_sbook>-excp = lv_mod.
+
+*  2、演示ICON列：赋值 ICON-ID
+    CASE <fs_sbook>-excp.
+      WHEN 1.
+        <fs_sbook>-icon = gc_red.           " '@5C@',   " ICON_LED_RED
+      WHEN 2.
+        <fs_sbook>-icon = gc_yellow.        " '@5D@',   " ICON_LED_YELLOW
+      WHEN 3.
+        <fs_sbook>-icon = gc_green.         " '@5B@'.   " ICON_LED_GREEN
+      WHEN OTHERS.
+        <fs_sbook>-icon = gc_inactive.      " '@BZ@',   " ICON_LED_INACTIVE
+    ENDCASE.
+*  2+、演示ICON列：赋值 ICON-INTERNAL
+    PERFORM zfrm_icon_get_names_by_id USING <fs_sbook>-icon
+          CHANGING <fs_sbook>-iconname <fs_sbook>-iconiname.
+
+*  3、演示行颜色：
+    DATA: lv_color TYPE string.
+    DATA: lv_value TYPE i, c1,c2,c3.
+    IF lv_index LT 33.
+      lv_value = ( lv_index + 1 ) / 4 - 1.
+      c1 = lv_value.                          " 颜色第2位为颜色值，由0~7表示，不同的数字表示不同的颜色属性：
+*         0 = background color，1 = Gray-blue，2 = Light gray，3 = yellow，
+*         4 = blue-gray，5 = green，6 = red，7 = orange
+      lv_value = ( lv_mod + 1 ) / 2 - 1.
+      c2 = lv_value.                          " 颜色第3位为是否高亮显示，由1、0（非1）表示，1表示高亮，非1表示不高亮
+      lv_value = lv_mod MOD 2.
+      c3 = lv_value.                          " 颜色第4位为是否反转，即颜色作用在背景色（表格行）还是前景色（文字）
+*                                                由1、0（非1）表示（仅当第3位为0时才生效），1-前景色，0（非1）-背景色
+      CONCATENATE 'C' c1 c2 c3 INTO lv_color. " 颜色定义为4位字符，首位固定为字母“C”
+      CONDENSE lv_color NO-GAPS.
+      <fs_sbook>-rowcolor = lv_color.
+      <fs_sbook>-rclrvalue = lv_color.
+    ENDIF.
+    IF lv_index EQ 33.
+      <fs_sbook>-rowcolor = 'C705'.     " 对比颜色值测试
+      <fs_sbook>-rclrvalue = 'C705'.
+    ELSEIF lv_index EQ 34.
+      <fs_sbook>-rowcolor = 'C791'.     " 对比颜色值测试
+      <fs_sbook>-rclrvalue = 'C791'.
+    ENDIF.
+
+*  4、演示单元格颜色：
+*    IF lv_index GT 34.
+    IF <fs_sbook>-luggweight GT 40.
+      CLEAR gt_colortab.
+      gt_colortab-fname = 'LUGGWEIGHT'.
+      gt_colortab-color-col = '6'.      " 红色高亮显示
+      gt_colortab-color-int = '1'.
+      gt_colortab-color-inv = '0'.
+      APPEND gt_colortab.
+    ENDIF.
+    IF <fs_sbook>-counter GT 0.
+      CLEAR gt_colortab.
+      gt_colortab-fname = 'COUNTER'.
+      gt_colortab-color-col = '6'.    " 红色高亮显示
+      gt_colortab-color-int = '1'.
+      gt_colortab-color-inv = '0'.
+      APPEND gt_colortab.
+    ENDIF.
+*    ENDIF.
+    <fs_sbook>-colortab = gt_colortab[].
+    CLEAR: gt_colortab, gt_colortab[].
+
+*   5、演示任意单元格编辑：价格小于800的可以编辑
+*     如果是针对某列的，可以先设置该列Fieldcat-edit = 'X'，开启列可编辑，然后通过样式控制不可编辑单元格；
+*     如果是针对表格的，可以先设置表格Layout-edit = 'X'，开启全部可编辑，然后通过样式控制不可编辑单元格；
+    CLEAR gt_styletab.
+    gt_styletab-fieldname = 'LOCCURAM'.
+    IF <fs_sbook>-loccuram GE 800.
+      gt_styletab-style = cl_gui_alv_grid=>mc_style_disabled. " 设置大于等于800的不可编辑
+    ELSE.
+      gt_styletab-style = cl_gui_alv_grid=>mc_style_enabled. " 设置小于800的可编辑
+    ENDIF.
+    APPEND gt_styletab.
+    <fs_sbook>-styletab = gt_styletab[].
+    CLEAR: gt_styletab, gt_styletab[].
+
+  ENDLOOP.
+ENDFORM.                    "frm_handle_data
+
+*&---------------------------------------------------------------------*
+*&      Form  frm_build_layout
+*&---------------------------------------------------------------------*
+*       常用Layout设置演示
+*----------------------------------------------------------------------*
+FORM frm_build_layout.
+
+  CLEAR gs_layout.
+  gs_layout-zebra = 'X'.                " 斑马线，隔行换色
+*  gs_layout-edit = 'X'.                " ALV所有列可编辑
+*  gs_layout-edit_mode = ' '.           " 编辑模式，用途未知
+*  gs_layout-no_keyfix = 'X'.           " 关键列不固定，包括设置 FIELDCAT-KEY、FIELDCAT-FIX_COLUMN 的列
+* 此处省略4个
+*  gs_layout-language = 'E'.            " 语言，没看到效果
+* 此处省略1个
+*  gs_layout-smalltitle = 'X'.          " 小标题，没看到效果
+*  gs_layout-no_hgridln = 'X'.          " 隐藏垂直线，即竖线
+*  gs_layout-no_vgridln = 'X'.          " 隐藏水平线，即横线
+*  gs_layout-no_headers = 'X'.          " 隐藏标题栏
+*  gs_layout-no_merging = 'X'.          " 禁用单元格合并，即排序时相同列内容仍显示，默认显示为空白
+  gs_layout-cwidth_opt = 'X'.           " 所有列自动宽度（此时 Fieldcat-outputlen 失效）
+*  gs_layout-totals_bef = 'X'.          " 总计、小计放在第一行
+*  gs_layout-no_totarr = 'X'.           " 没看到效果：在总计一行和小计行中显示箭头，这些箭头还表示总计区域。 设置此参数以抑制这些箭头
+*  gs_layout-no_totexp = 'X'.           " 没看到效果：一个图标显示在一个（子）总计的开始线表示是否已展开的行。 设置此参数以抑制此图标。
+* 此处省略7个
+  IF p_edit EQ 'X'.                     " 开启编辑会影响layout-sel_mode，ABC模式 = A模式，D模式不变
+    gs_layout-stylefname = 'STYLETAB'.  " 显示样式：控制单元格可否编辑
+  ENDIF.
+*  gs_layout-no_rowmark = 'X'.          " 隐藏左边的选择块（当Layout-SEL_MODE = A或D，或设置了Layout-BOX_FNAME，或设置了编辑状态时，默认会有选择块）
+*  gs_layout-no_toolbar = 'X'.          " 没看到效果
+  gs_layout-grid_title = 'Title在哪里'. " 没看到效果
+  gs_layout-sel_mode = p_sel.           " 选择模式（需要去掉：layout-box_fname 和 编辑模式，才能看到效果）
+  IF p_sel IS INITIAL.
+    gs_layout-box_fname = 'SEL'.         " 一旦设置，则相当于设置了 gs_layout-SEL_MODE = 'A'，其他模式失效
+*                                           不管是否编辑状态，可以通过选择块状态来更新SEL字段的值
+  ENDIF.
+*  gs_layout-sgl_clk_hd = 'X'.          " 列标题支持单击排序
+*  gs_layout-no_totline = 'X'.          " 不显示合计、小计行
+  gs_layout-numc_total = 'X'.           " 默认情况，NUMC字段设置 FIELDCAT-DO_SUM = 'X' 是不会计算合计的，设置支持合计
+*  gs_layout-no_utsplit = 'X'.          " 是否根据单位拆分总计?
+  IF p_excp EQ 'X'.     " 是否演示图标
+    gs_layout-excp_fname = 'EXCP'.      " 指定列按红绿灯显示，否则显示原始值
+  ENDIF.
+*  gs_layout-excp_rolln = ' '.          " 未知？
+*  gs_layout-excp_conds = 'X'.          " 未知？
+  IF p_excp EQ 'X' AND p_led EQ 'X'.
+    gs_layout-excp_led = 'X'.           " 更改EXCP列的显示样式为LED
+  ENDIF.
+*  gs_layout-excp_group = 'X'.          " 未知？
+* gs_layout-detailinit = 'X'.           " 显示明细，初始值的项也显示，即显示空值，默认不显示
+  gs_layout-detailtitl = '明细标题'.    " 显示明细，窗口的标题
+*  gs_layout-keyhot = 'X'.              " 关键列作为热点，处理事件在哪里？
+* 此处省略3个
+*  gs_layout-s_dragdrop = ''.           " ALV拖拽，另外专题讲解
+  IF p_color = 'X'.     " 是否演示颜色
+    IF p_row EQ 'X' OR p_all EQ 'X'.
+      gs_layout-info_fname = 'ROWCOLOR'.  " 行颜色2：设定行颜色值所在的列（ COLOR ）
+    ENDIF.
+    IF p_cell EQ 'X' OR p_all EQ 'X'.
+      gs_layout-ctab_fname = 'COLORTAB'.  " 单元格颜色3：设定单元格颜色值所在的内表（列名 FNAME +颜色值 COLOR）
+    ENDIF.
+  ENDIF.
+* 此处省略5个
+
+ENDFORM.                    "frm_build_layout
+
+*&---------------------------------------------------------------------*
+*&      Form  frm_build_fieldcat
+*&---------------------------------------------------------------------*
+*       常用Fieldcat设置演示
+*----------------------------------------------------------------------*
+FORM frm_build_fieldcat.
+
+  DATA: lv_field TYPE string.
+  DEFINE mac_field.
+    lv_field = '&1'.
+    TRANSLATE lv_field TO UPPER CASE.
+
+*  gt_fieldcat-row_pos = ''.
+*  gt_fieldcat-col_pos = ''.          " 指定显示列位置
+    CLEAR gt_fieldcat.
+    gt_fieldcat-fieldname = lv_field. " 内表字段名
+    gt_fieldcat-reptext = '&2'.       " 字段标题（建议使用该字段，不必设置以下四个字段）
+*  gt_fieldcat-scrtext_l = ''.        " 长标题
+*  gt_fieldcat-scrtext_m = ''.        " 中标题
+*  gt_fieldcat-scrtext_s = ''.        " 短标题
+*  gt_fieldcat-tooltip = ''.          " 默认等于 reptext
+
+*  gt_fieldcat-tabname = ''.
+*  gt_fieldcat-cfieldname = 'LOCCURKEY'.
+*  gt_fieldcat-quantity = ''.
+*  gt_fieldcat-qfieldname = ''.
+*  gt_fieldcat-ifieldname = ''.
+*  gt_fieldcat-round = ''.
+*  gt_fieldcat-exponent = ''.
+
+    IF gt_fieldcat-fieldname EQ 'CARRID' OR gt_fieldcat-fieldname EQ 'CONNID'.
+      gt_fieldcat-key = 'X'.
+      gt_fieldcat-just = 'C'.           " 单元格中内容显示时对齐方式：(R)ight (L)eft (C)ent.
+      gt_fieldcat-no_zero = 'X'.        " 为X时,不输出前导零，和无意义的空值
+    ENDIF.
+    IF gt_fieldcat-fieldname EQ 'FLDATE'.
+      gt_fieldcat-fix_column = 'X'.     " 单元格固定
+    ENDIF.
+
+    IF p_edit EQ 'X'.
+      IF gt_fieldcat-fieldname EQ 'LOCCURAM'.   " 金额
+        gt_fieldcat-edit = 'X'.           " 设置该列可编辑
+        gt_fieldcat-datatype = 'CURR'.    " 指定数据类型：金额，用于控制输入时的小数位为2位
+      ENDIF.
+      IF gt_fieldcat-fieldname EQ 'LUGGWEIGHT'. " 行李重量
+        gt_fieldcat-edit = 'X'.           " 设置该列可编辑
+        gt_fieldcat-decimals = 4.         " 指定小数位，用于控制输入时的小数位为4位
+      ENDIF.
+      IF gt_fieldcat-fieldname EQ 'ORDER_DATE'.
+        gt_fieldcat-edit = 'X'.
+        gt_fieldcat-edit_mask = '____/__/__'.
+      ENDIF.
+      IF gt_fieldcat-fieldname EQ 'CANCELLED'.
+        gt_fieldcat-edit = 'X'.
+        gt_fieldcat-checkbox = 'X'.       " 复选框
+      ENDIF.
+      IF gt_fieldcat-fieldname EQ 'SEX'.  " 下拉框
+        gt_fieldcat-edit = 'X'.
+        gt_fieldcat-outputlen = 10.
+        gt_fieldcat-drdn_hndl = '1'.      " 对应 gt_dropdown-Handle = 1 的项
+*      gt_fieldcat-drdn_field = ''.       " 指定存handle值的字段
+*      gt_fieldcat-drdn_alias = ''.       " 未知?
+      ENDIF.
+      " 设置可编辑字段F4搜索帮助
+      IF gt_fieldcat-fieldname EQ 'WUNIT'.  " 单位-F4帮助（？）
+        gt_fieldcat-edit = 'X'.
+        gt_fieldcat-f4availabl = 'X'.
+        gt_fieldcat-ref_field = 'MSEHI'.  " 如需单元格显示F4输入帮助，则需要指定字段所参照的表中的字段名
+        gt_fieldcat-ref_table = 'T006'.   " 如需单元格显示F4输入帮助，则需要指定字段所参照的表名
+      ENDIF.
+    ENDIF.
+
+*    if gt_fieldcat-fieldname eq 'ICON'.
+*     gt_fieldcat-icon = 'X'.             " 显示图标，对于赋值ICON-ID的列，不设置也能自动显示图标
+*     gt_fieldcat-symbol = 'X'.
+*    endif.
+
+*     gt_fieldcat-lzero = 'X'.          " 为X时,输出前导零
+*  gt_fieldcat-no_sign = 'X'.            " 为X时,不显示数字符号
+*  gt_fieldcat-no_convext = ''.
+
+    IF p_color EQ 'X' AND ( p_col EQ 'X' OR p_all EQ 'X' )
+        AND gt_fieldcat-fieldname EQ 'CLASS'.
+      gt_fieldcat-emphasize = 'C510'.   " 列颜色1：绿色高亮显示
+    ENDIF.
+
+    IF gt_fieldcat-fieldname EQ 'LUGGWEIGHT'
+        OR gt_fieldcat-fieldname EQ 'COUNTER'.  " NUMC类型，需要设置 layout-numc_total = 'X' 才能合计
+      gt_fieldcat-do_sum = 'X'.   " 合计
+*     gt_fieldcat-no_sum = ''.
+    ENDIF.
+
+    IF gt_fieldcat-fieldname EQ 'PASSNAME'.
+      gt_fieldcat-no_out = 'X'.     " 不显示在ALV列表中，但可以更改布局显示出来
+    ENDIF.
+    IF gt_fieldcat-fieldname EQ 'PASSBIRTH'.
+      gt_fieldcat-tech = 'X'.       " 彻底隐藏，在更改布局中不可见
+    ENDIF.
+
+*  gt_fieldcat-outputlen = ''.      " 设置列宽，当设置自动列宽是，此参数失效
+*  gt_fieldcat-convexit = ''.
+*  gt_fieldcat-seltext = ''.
+
+*  gt_fieldcat-rollname = ''.
+*  gt_fieldcat-inttype = ''.
+*  gt_fieldcat-intlen = ''.
+*  gt_fieldcat-lowercase = ''.
+*
+*  gt_fieldcat-hier_level = ''.
+*  gt_fieldcat-reprep = ''.
+*  gt_fieldcat-domname = ''.
+*  gt_fieldcat-sp_group = ''.
+*  gt_fieldcat-hotspot = ''.        " 设置字段内容下面是否有热点（有下划线，可点击，单击即可触发相应事件）
+*  gt_fieldcat-dfieldname = ''.
+*  gt_fieldcat-col_id = ''.
+
+*  gt_fieldcat-auto_value = ''.
+*  gt_fieldcat-checktable = ''.
+*  gt_fieldcat-valexi = ''.
+*  gt_fieldcat-web_field = ''.
+*  gt_fieldcat-href_hndl = ''.
+*  gt_fieldcat-style = ''.
+*  gt_fieldcat-style2 = ''.
+*  gt_fieldcat-style3 = ''.
+*  gt_fieldcat-style4 = ''.
+
+*  gt_fieldcat-no_merging = ''.
+*  gt_fieldcat-h_ftype = ''.
+*  gt_fieldcat-col_opt = ''.          " 单列优化宽度
+*  gt_fieldcat-no_init_ch = ''.
+
+*  gt_fieldcat-txt_field = ''.
+*  gt_fieldcat-roundfield = ''.
+*  gt_fieldcat-decimals_o = ''.
+*  gt_fieldcat-decmlfield = ''.
+*  gt_fieldcat-dd_outlen = ''.
+*  gt_fieldcat-coltext = ''.
+
+*  gt_fieldcat-colddictxt = ''.
+*  gt_fieldcat-selddictxt = ''.
+*  gt_fieldcat-tipddictxt = ''.
+*
+*  gt_fieldcat-tech_col = ''.
+*  gt_fieldcat-tech_form = ''.
+*  gt_fieldcat-tech_comp = ''.
+*  gt_fieldcat-hier_cpos = ''.
+*  gt_fieldcat-h_col_key = ''.
+*  gt_fieldcat-h_select = ''.
+*  gt_fieldcat-dd_roll = ''.
+*  gt_fieldcat-dragdropid = ''.
+*  gt_fieldcat-mac = ''.
+*  gt_fieldcat-indx_field = ''.
+*  gt_fieldcat-indx_cfiel = ''.
+*  gt_fieldcat-indx_qfiel = ''.
+*  gt_fieldcat-indx_ifiel = ''.
+*  gt_fieldcat-indx_round = ''.
+*  gt_fieldcat-indx_decml = ''.
+*  gt_fieldcat-get_style = ''.
+*  gt_fieldcat-mark = ''.
+
+    APPEND gt_fieldcat.
+
+  END-OF-DEFINITION.
+
+  mac_field:  "mandt       集团,
+              carrid      航运公司,           " 关键字（需设置 fieldcat-key ）
+              connid      航线id,             " 固定列（需设置 fieldcat-fix_column ）
+              fldate      航班日期,           " 日期，编辑样式（需设置 fieldcat-edit、fieldcat-edit_mask ）
+              luggweight  行李重量,           " 合计（需设置 fieldcat-do_sum）
+              wunit       重量单位,
+              class       航班舱位,
+              loccuram    价格,
+              loccurkey   币别,
+              order_date  订单日期,
+              counter     柜台号,             " NUMC合计（需设置 layout-numc_total、fieldcat-do_sum）
+              cancelled   取消,               " 复选框（编辑状态下显示复选框，需设置 Fieldcat-Checkbox）
+              passname    乘客姓名,           " 默认隐藏（需设置 fieldcat-no_out ）
+              passbirth   乘客生日,           " 技术隐藏（需设置 fieldcat-tech ）
+              sex         性别_下拉演示不保存,
+              icon        图标,               " 图标（无需设置，直接显示成图标）
+              iconname    图标名称,           " 图标名称（文本值，具体可以参考数据字典ICON表）
+              iconiname   图标内码,           " 图标内部名称（无需设置，直接显示成图标）
+              rclrvalue   行颜色值演示.
+
+  IF p_icon IS INITIAL.   " 是否显示图标
+    LOOP AT gt_fieldcat WHERE fieldname CS 'ICON'.
+      DELETE gt_fieldcat.
+    ENDLOOP.
+  ELSE.
+    LOOP AT gt_fieldcat WHERE fieldname CS 'ICON'.
+      gt_fieldcat-just = 'C'.
+      MODIFY gt_fieldcat.
+    ENDLOOP.
+  ENDIF.
+
+  IF p_color IS INITIAL.  " 是否显示颜色
+    LOOP AT gt_fieldcat WHERE fieldname EQ 'RCLRVALUE'.
+      DELETE gt_fieldcat.
+    ENDLOOP.
+  ENDIF.
+
+  IF p_edit IS INITIAL.   " 是否编辑状态
+    LOOP AT gt_fieldcat WHERE fieldname EQ 'SEX'.
+      DELETE gt_fieldcat.
+    ENDLOOP.
+  ENDIF.
+
+ENDFORM.                    "frm_build_fieldcat
+
+*&---------------------------------------------------------------------*
+*&      Form  frm_build_others
+*&---------------------------------------------------------------------*
+*       ALV 其他设置
+*----------------------------------------------------------------------*
+FORM frm_build_others.
+
+  " 1、此部分用于排序和分类汇总
+  IF p_sort EQ 'X'.
+    CLEAR gt_sort.
+    gt_sort-spos = 1.
+    gt_sort-fieldname = 'LOCCURAM'.   "要排序或分类汇总的字段
+    gt_sort-up        = 'X'.          "表示按照上面栏位升序排列
+    gt_sort-subtot    = 'X'.          "表示按照该栏位名来分组汇总
+    APPEND gt_sort.
+  ENDIF.
+
+  " 2、此部分用于设置预置按钮事件
+  CLEAR gt_event_exit.
+  gt_event_exit-ucomm = '&ETA'.   " 查看明细
+  gt_event_exit-after = 'X'.
+  APPEND gt_event_exit.
+
+  " 3、此部分用于排除特定工具栏按钮
+  IF p_ex IS INITIAL.
+    CLEAR gt_exclude.
+    gt_exclude-fcode = '&VEXCEL'.       " 导出EXCEL
+    APPEND gt_exclude.
+    CLEAR gt_exclude.
+    gt_exclude-fcode = '%SL'.           " 邮件
+    APPEND gt_exclude.
+  ENDIF.
+
+  " 4、此部分用于绑定事件处理Form
+  CLEAR gt_event.
+  gt_event-name = 'CALLER_EXIT'.      " 调用出口，可以和OO ALV结合使用
+  gt_event-form = 'FRM_CALLER_EXIT'.
+  APPEND gt_event.
+
+*  CLEAR gt_event.
+*  gt_event-name = 'PF_STATUS_SET'.    " 作用同设置i_callback_pf_status_set
+*  gt_event-form = 'FRM_CB_STATUS_SET'.
+*  APPEND gt_event.
+
+*  CLEAR gt_event.
+*  gt_event-name = 'DATA_CHANGED'.
+*  gt_event-form = 'FRM_DATA_CHANGED'.
+*  APPEND gt_event.
+
+  " 5、GRID显示、打印设置
+  IF p_tt IS INITIAL.   " 显示表头表尾
+    gs_setting-coll_top_p = 'X'. "  最小化 TOP_OF_PAGE
+    gs_setting-coll_end_l = 'X'. "  最小化 END_OF_LIST
+  ENDIF.
+*  gs_setting-top_p_only = 'X'. "  Top_Of_Page 仅在打印
+*  gs_setting-eol_p_only = 'X'. "  END_OF_LIST 仅在打印
+*  gs_setting-no_colwopt = 'X'. "  ALV 控制: 不优化打印的列宽
+  gs_setting-edt_cll_cb = 'X'. "  值修改后立即触发Data_changed
+
+  " 6、后台打印设置（未设置）
+*  gs_print
+
+  " 7、编辑状态的下拉框
+  " 一个 ALV 报表可以存在多个单元格不同数值下拉框，所以 handle 可以理解为分组，后期调用根据该值来判断是哪个下拉框。
+  " 设置Fieldcat-DRDN_HNDL = 分组ID
+  gs_dropdown-handle = '1'.   " 第1组下拉框：男、女
+  gs_dropdown-value = '男'.
+  APPEND gs_dropdown TO gt_dropdown.
+  gs_dropdown-handle = '1'.
+  gs_dropdown-value = '女'.
+  APPEND gs_dropdown TO gt_dropdown.
+
+ENDFORM.                    "frm_build_others
+
+*&---------------------------------------------------------------------*
+*&      Form  frm_caller_exit
+*&---------------------------------------------------------------------*
+*       调用出口，可结合OO ALV使用
+*----------------------------------------------------------------------*
+FORM frm_caller_exit USING ls_data TYPE slis_data_caller_exit.
+  DATA:lr_grid TYPE REF TO cl_gui_alv_grid.
+  CALL FUNCTION 'GET_GLOBALS_FROM_SLVC_FULLSCR'
+    IMPORTING
+      e_grid = lr_grid.
+
+  CALL METHOD lr_grid->set_drop_down_table
+    EXPORTING
+      it_drop_down = gt_dropdown.
+
+** 设置enter事件
+*  CALL METHOD lr_grid->register_edit_event
+*    EXPORTING
+*      i_event_id = cl_gui_alv_grid=>mc_evt_enter
+*    EXCEPTIONS
+*      error      = 1
+*      OTHERS     = 2.
+** 设置 单光标焦点移开被修改单元格后既触发事件
+*  CALL METHOD lr_grid->register_edit_event
+*    EXPORTING
+*      i_event_id = cl_gui_alv_grid=>mc_evt_modified
+*    EXCEPTIONS
+*      error      = 1
+*      OTHERS     = 2.
+* 以上两句作用等同于：gs_setting-edt_cll_cb = 'X'. "  值修改后立即触发Data_changed
+
+  DATA: lr_event_receiver TYPE REF TO lcl_event_receiver.
+  CREATE OBJECT lr_event_receiver.
+  SET HANDLER lr_event_receiver->handle_data_changed FOR lr_grid.
+* 以上两句作用等同于：
+*  CLEAR gt_event.
+*  gt_event-name = 'DATA_CHANGED'.
+*  gt_event-form = 'FRM_DATA_CHANGED'.
+*  APPEND gt_event.
+
+
+*  SET HANDLER lr_event_receiver->handle_f4 FOR lr_grid.
+
+*  ls_f4-fieldname  = 'EMPLOYEE'.   "窗口时间参数（需要定义F4帮助按钮的字段）
+*  ls_f4-register   = 'X'.
+*  ls_f4-getbefore  = 'X'.
+*  ls_f4-chngeafter = 'X'.
+*  INSERT ls_f4 INTO TABLE lt_f4.
+*
+* CALL METHOD lr_grid->register_f4_for_fields
+*   EXPORTING
+*     it_f4 = lt_f4[].
+
+*  还需要设置相应的fieldcat
+*  ls_fieldcat-edit = 'X'.    "把这一列变为可修改
+*  ls_fieldcat-f4availabl = 'X'. "这个一定要打上X，字段尾部，添加搜索帮助的的小按钮
+ENDFORM.                    "frm_caller_exit
+
+*&---------------------------------------------------------------------*
+*&      Form  frm_DATA_CHANGED
+*&---------------------------------------------------------------------*
+*       可编辑GRID值更新
+*----------------------------------------------------------------------*
+FORM frm_data_changed USING pcl_data TYPE REF TO cl_alv_changed_data_protocol.
+  DATA: l_name(20),
+        ls_cells TYPE lvc_s_modi.
+  FIELD-SYMBOLS: <fs_value>.
+
+  LOOP AT pcl_data->mt_mod_cells INTO ls_cells.
+    CLEAR gt_sbook.
+    READ TABLE gt_sbook INDEX ls_cells-row_id.  " 读取更新的行
+    CONCATENATE 'GT_SBOOK-' ls_cells-fieldname INTO l_name.
+    ASSIGN (l_name) TO <fs_value>.
+    <fs_value> = ls_cells-value.                " 给对应字段赋新值，更新grid
+    MODIFY gt_sbook INDEX ls_cells-row_id TRANSPORTING (ls_cells-fieldname).
+
+    " 值联动：可以从数据库获取其他字段值，
+    "赋数据库其他值（适用于仓库变更，显示新的库存量的场景）
+*     SELECT SINGLE labst
+*     INTO gt_sbook-labst
+*     FROM mard
+*     WHERE matnr = ls_sbook-matnr
+*       AND werks = ls_sbook-reswk
+*       AND lgort = ls_sbook-lgort.
+    "更新GRID
+    " MODIFY gt_sbook INDEX ls_cells-row_id.
+  ENDLOOP.
+
+  " 做了更新，则刷新GRID
+  DATA: lr_grid TYPE  REF TO cl_gui_alv_grid,
+        ls_stbl TYPE  lvc_s_stbl.
+  CALL FUNCTION 'GET_GLOBALS_FROM_SLVC_FULLSCR'
+    IMPORTING
+      e_grid = lr_grid.
+  ls_stbl-row = 'X'." 基于行稳定刷新
+  ls_stbl-col = 'X'." 基于列稳定刷新
+  CALL METHOD lr_grid->refresh_table_display
+    EXPORTING
+      is_stable = ls_stbl.
+ENDFORM.                    "frm_DATA_CHANGED
+
+*&---------------------------------------------------------------------*
+*&      Form  frm_show_alv
+*&---------------------------------------------------------------------*
+*       ALV显示
+*----------------------------------------------------------------------*
+FORM frm_show_alv.
+  DATA: lv_title TYPE lvc_title.
+  IF p_title EQ 'X'.
+    lv_title = p_text.
+    IF lv_title IS INITIAL.
+      lv_title = '您未定义ALV标题'.
+    ENDIF.
+  ENDIF.
+
+  DATA: lv_loc1 TYPE i, lv_loc2 TYPE i, lv_loc3 TYPE i, lv_loc4 TYPE i.
+  IF p_dialog EQ 'X'.
+    lv_loc1 = 1.
+    lv_loc2 = 1.
+    lv_loc3 = 100.
+    lv_loc4 = 10.
+  ENDIF.
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY_LVC'
+    EXPORTING
+*     I_INTERFACE_CHECK           = ' '                        " 接口一致性检查
+*     I_BYPASSING_BUFFER          =                            " 是否使用缓存
+*     I_BUFFER_ACTIVE             =                            " 是否激活缓存，如果每次显示ALV都是相同的字段目录，则该字段目录会被放到一特殊的缓存里，加快显示速度。
+      i_callback_program          = 'YTEST_ALV_DEMO'                " 回调函数、输出内表所在的程序名
+      i_callback_pf_status_set    = 'FRM_CB_STATUS_SET'          " 回调本地FORM，设置ALV工具栏
+      i_callback_user_command     = 'FRM_CB_USER_COMMAND'        " 回调本地FORM，设置工具栏按钮或数据行事件触发时的操作
+      i_callback_top_of_page      = 'FRM_CB_TOP_OF_PAGE'         " 回调函数，设置ALV报表表头信息
+      i_callback_html_top_of_page = 'FRM_CB_HTML_TOP_OF_PAGE'    " 回调函数，设置ALV报表表头HTML代码
+      i_callback_html_end_of_list = 'FRM_CB_HTML_END_OF_LIST'    " 回调函数，设置ALV报表表尾HTML代码
+*     I_STRUCTURE_NAME            = 'GT_SBOOK'                 " 字段目录结构，参考数据字典结构，需要为gt_sbook定义结构
+*     I_BACKGROUND_ID             = ' '                        " 设置ALV背景图片ID
+      i_grid_title                = lv_title                     " ALV 标题，位于ALV工具栏和ALV GRID之间
+      i_grid_settings             = gs_setting                   " GRID信息设置
+      is_layout_lvc               = gs_layout                    " ALV输出布局样式
+      it_fieldcat_lvc             = gt_fieldcat[]                " 设定显示的项目名称及输出设定
+      it_excluding                = gt_exclude[]                 " 隐藏设置的ALV工具栏
+*     IT_SPECIAL_GROUPS_LVC       =
+      it_sort_lvc                 = gt_sort[]                    " ALV排序设置，可以display前对内表数据排序
+*     IT_FILTER_LVC               =                            " ALV过滤设置，可以在get_data时增加过滤
+*     IT_HYPERLINK                =
+*     IS_SEL_HIDE                 =
+      i_default                   = 'X'                          " 用户是否可以定义默认的布局，’X'-可以定义默认布局，Space-不可以定义默认布局 （默认：X）
+      i_save                      = 'A'                          " 保存表格布局：'X'-只能保存为全局标准变式，'U'-只能保存特定用户变式，'A'-都可以保存，SPACE-不能保存变式（默认：space）
+*     IS_VARIANT                  =                            " 表格布局变式
+      it_events                   = gt_event[]                  " 设置事件, 类型为slis_t_event的内表（name：事件名称，form：事件的FORM）
+      it_event_exit               = gt_event_exit[]             " 设置预置按钮回调的执行行为，表明用户所写的代码是在执行标准执行之前还是之后
+*     IS_PRINT_LVC                =
+*     IS_REPREP_ID_LVC            =
+      i_screen_start_column       = lv_loc1                     " 以对话框形式显示的开始列
+      i_screen_start_line         = lv_loc2                     " 以对话框形式显示的开始行
+      i_screen_end_column         = lv_loc3                     " 以对话框形式显示的结束列
+      i_screen_end_line           = lv_loc4                     " 以对话框形式显示的结束行
+      i_html_height_top           = p_height                    " 表头高度
+      i_html_height_end           = p_height                    " 表尾高度
+*     IT_EXCEPT_QINFO_LVC         =
+*     IR_SALV_FULLSCREEN_ADAPTER  =
+*  IMPORTING
+*     E_EXIT_CAUSED_BY_CALLER     =
+*     ES_EXIT_CAUSED_BY_USER      =
+    TABLES
+      t_outtab                    = gt_sbook                    " 必须参数，要显示的内表
+*  EXCEPTIONS
+*     PROGRAM_ERROR               = 1
+*     OTHERS                      = 2
+    .
+  IF sy-subrc <> 0.
+* MESSAGE ID SY-MSGID TYPE SY-MSGTY NUMBER SY-MSGNO
+*         WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4.
+  ENDIF.
+ENDFORM.                    "show_alv
+
+*&---------------------------------------------------------------------*
+*&      Form  FRM_CB_STATUS_SET
+*&---------------------------------------------------------------------*
+*       ALV 自定义工具栏
+*----------------------------------------------------------------------*
+FORM frm_cb_status_set USING rt_extab TYPE slis_t_extab.
+* 参数说明：rt_extab是要排除掉的按钮，根据Funcode来排除。
+*  另外，也可以通过REUSE_ALV_GRID_DISPLAY函数IT_EXCLUDING内表参数来直接排除哪些预置按钮不可用，
+*  IT_EXCLUDING内表结构只有一个fcode字段，即根据保留的FunCode即可disabled掉。
+
+* 1、使用ALV自带的，注释调入参：i_callback_pf_status_set 即可
+
+* 2、调用系统预定义好的标准ALV工具栏，在程序SAPLKKBL中，使用以下语句调用
+* SET PF-STATUS 'STANDARD_FULLSCREEN' OF PROGRAM 'SAPLKKBL' EXCLUDING rt_extab.
+
+* 3、自定义ALV工具栏，自已创建一个GUI Status，
+*  通常作法是从SLVC_FULLSCREEN函数组中拷贝STANDARD_FULLSCREEN，再在此基础之上新增按钮即可
+
+  "取消激活Function code为 %PC 的本地文件、&AQW 的文字处理
+  APPEND '%PC' TO  rt_extab.    " 注意：rt_extab 中已经存在一些fcode了
+  APPEND '&AQW' TO  rt_extab.
+  IF p_ex IS INITIAL.
+    SET PF-STATUS 'STANDARD_FULLSCREEN' EXCLUDING rt_extab.
+  ELSE.
+    SET PF-STATUS 'STANDARD_FULLSCREEN'.
+  ENDIF.
+ENDFORM.                    "FRM_CB_STATUS_SET
+
+*&---------------------------------------------------------------------*
+*&      Form  FRM_CB_USER_COMMAND
+*&---------------------------------------------------------------------*
+*       ALV 自定义按钮事件
+*----------------------------------------------------------------------*
+FORM frm_cb_user_command USING r_ucomm LIKE sy-ucomm rs_selfield TYPE slis_selfield.
+* 过程说明：ALV触发的事件（如双击某行数据、单击热点、点ALV工具栏上的自定义的按钮时），
+*           会回调I_CALLBACK_USER_COMMAND参数指定的Form；
+*           只有自已新增的按钮（或双击数据行时、热点点击）再会调用，
+*           ALV 标准默认的Function Code是不会调用的（除非使用使用IT_EVENT_EXIT）
+* 参数说明：R_UCOMM 为触发的function code；
+*           结构 RS_SELFIELD 为触发字段相关信息
+  CASE r_ucomm.
+    WHEN '&IC1'.  " 表示双击
+      CHECK rs_selfield-tabindex > 0.
+      DATA: lv_str TYPE string.
+      lv_str = rs_selfield-tabindex.
+      CONCATENATE '您双击了：第' lv_str '行的' rs_selfield-fieldname '，值为：' rs_selfield-value
+      INTO lv_str.
+      MESSAGE lv_str TYPE 'I'.
+
+    WHEN '&ETA'.  " 显示明细
+      MESSAGE '此弹窗仅在设置了IT_EVENT_EXIT才出现' TYPE 'I'.
+
+    WHEN 'ZSAVE'. " 保存：更改系统的保存按钮FCODE：&DATA_SAVE 为 ZSAVE，预留的FCODE无法直接捕获
+      DATA: lt_sbook TYPE TABLE OF sbook,
+            ls_sbook TYPE sbook.
+      LOOP AT gt_sbook.
+        MOVE-CORRESPONDING gt_sbook TO ls_sbook.
+        APPEND ls_sbook TO lt_sbook.
+      ENDLOOP.
+      MODIFY sbook FROM TABLE lt_sbook.     " 必须包含所有关键字才能更新DB
+      IF sy-subrc EQ 0.
+        COMMIT WORK.
+      ELSE.
+        ROLLBACK WORK.
+      ENDIF.
+
+    WHEN 'ZSEL'.  " 选择：设置BOX_FNANE，通过选择块来控制SEL字段的值
+      DATA: lv_count TYPE i.
+      LOOP AT gt_sbook WHERE sel = 'X'.
+        lv_count = lv_count + 1.
+      ENDLOOP.
+      DATA: lv_msg TYPE string.
+      IF lv_count IS INITIAL.
+        lv_msg = '0'.
+      ELSE.
+        lv_msg = lv_count.
+      ENDIF.
+      CONCATENATE '您选择了' lv_msg '条记录！' INTO lv_msg.
+      MESSAGE lv_msg TYPE 'I'.
+
+  ENDCASE.
+
+  "自动刷新
+*  rs_selfield-refresh    = 'X'.
+*  rs_selfield-col_stable = 'X'.
+*  rs_selfield-row_stable = 'X'.
+ENDFORM.                    "FRM_CB_USER_COMMAND
+
+*&---------------------------------------------------------------------*
+*&      Form  FRM_CB_TOP_OF_PAGE
+*&---------------------------------------------------------------------*
+*       ALV 表头设置
+*----------------------------------------------------------------------*
+FORM frm_cb_top_of_page.
+  DATA: lt_grid_top_of_page TYPE slis_t_listheader.
+  DATA: ls_line TYPE slis_listheader.
+  CLEAR lt_grid_top_of_page[].
+  CLEAR ls_line.
+  ls_line-typ  = 'H'.         " 只显示 INFO
+*  ls_line-key  = '大标题'.     " 不显示
+  ls_line-info  = '航空公司订单记录表'.
+  APPEND ls_line TO lt_grid_top_of_page.
+
+* STATUS LINE: TYPE S
+  CLEAR ls_line.
+  ls_line-typ  = 'S'.         " 显示 KEY INFO
+  ls_line-key  = '系统日期'.
+  CONCATENATE sy-datum+0(4) '年' sy-datum+4(2) '月' sy-datum+6(2)  '日'
+              INTO ls_line-info  .
+  APPEND ls_line TO lt_grid_top_of_page.
+
+  CLEAR ls_line.
+  ls_line-typ  = 'A'.         " 只显示 INFO
+*  ls_line-key  = '小标题'.     " 不显示
+  ls_line-info  = 'TYP-A'.
+  APPEND ls_line TO lt_grid_top_of_page.
+
+  CALL FUNCTION 'REUSE_ALV_COMMENTARY_WRITE'
+    EXPORTING
+      it_list_commentary = lt_grid_top_of_page.
+
+ENDFORM.                    "FRM_CB_TOP_OF_PAGE
+
+*&---------------------------------------------------------------------*
+*&      Form  FRM_CB_HTML_TOP_OF_PAGE
+*&---------------------------------------------------------------------*
+*       ALV HTML表头设置
+*----------------------------------------------------------------------*
+FORM frm_cb_html_top_of_page USING cl_dd TYPE REF TO cl_dd_document.
+*  说明：使用 ABAP 类 CL_DD_DOCUMENT，定义HTML文档，
+*  即：使用HTML语言对表头的输出格式进行控制,包括输出文字的大小,字体及颜色等,
+*  总之在HTML语言中能实现的在这里都能实现.
+*  当I_CALLBACK_TOP_OF_PAGE和I_CALLBACK_HTML_TOP_OF_PAGE同时设置时,
+*  只有I_CALLBACK_HTML_TOP_OF_PAGE起作用.
+
+  DATA: m_p TYPE i.
+  DATA: m_buff TYPE string.
+*表头其实完全可以是一个html文件，自己使用html语言进行格式控制
+  m_buff = '<html>'.
+  CALL METHOD cl_dd->html_insert
+    EXPORTING
+      contents = m_buff
+    CHANGING
+      position = m_p.
+
+  m_buff = '<H4>航空公司订单记录表</H4>'.
+  CALL METHOD cl_dd->html_insert
+    EXPORTING
+      contents = m_buff
+    CHANGING
+      position = m_p.
+
+  m_buff = sy-datum.
+  CALL METHOD cl_dd->html_insert
+    EXPORTING
+      contents = m_buff
+    CHANGING
+      position = m_p.
+
+  m_buff = '</html>'.
+  CALL METHOD cl_dd->html_insert
+    EXPORTING
+      contents = m_buff
+    CHANGING
+      position = m_p.
+ENDFORM.                    "FRM_CB_HTML_TOP_OF_PAGE
+
+*&---------------------------------------------------------------------*
+*&      Form  FRM_CB_HTML_END_OF_LIST
+*&---------------------------------------------------------------------*
+*       ALV HTML表尾设置
+*----------------------------------------------------------------------*
+FORM frm_cb_html_end_of_list USING document TYPE REF TO cl_dd_document.
+  DATA: text TYPE sdydo_text_element.
+  text = '自定义表尾信息'.
+  CALL METHOD document->add_text
+    EXPORTING
+      text      = text
+      sap_style = 'HEADING'.
+  "换行写另一标题
+  CALL METHOD document->new_line.
+  "缩进
+  CALL METHOD document->add_gap
+    EXPORTING
+      width = 10.                                           "空格宽10
+  text = '追加标题'.
+  CALL METHOD document->add_text
+    EXPORTING
+      text      = text
+      sap_style = 'HEADING'.
+ENDFORM.                    "FRM_CB_HTML_END_OF_LIST
+
+*&---------------------------------------------------------------------*
+*&      Form  zfrm_icon_get_iname_by_name
+*&---------------------------------------------------------------------*
+*       创建带自定义提示符的图标
+*----------------------------------------------------------------------*
+FORM zfrm_icon_create_by_name
+    USING VALUE(fv_icon_name) VALUE(fv_info)
+    CHANGING fc_icon_iname.
+  CALL FUNCTION 'ICON_CREATE'
+    EXPORTING
+      name   = fv_icon_name  "图标名字
+      info   = fv_info       "图标提示
+    IMPORTING
+      result = fc_icon_iname
+    EXCEPTIONS
+      OTHERS = 0.
+ENDFORM.                    "zfrm_icon_get_iname_by_name
+
+*&---------------------------------------------------------------------*
+*&      Form  zfrm_icon_get_iname_by_name
+*&---------------------------------------------------------------------*
+*       通过图标名称获取图标内码
+*----------------------------------------------------------------------*
+FORM zfrm_icon_get_iname_by_name
+          USING VALUE(fv_name)
+          CHANGING fc_icon_iname.
+  DATA: ls_icon TYPE icon.
+  SELECT SINGLE * INTO ls_icon FROM icon WHERE name = fv_name.
+  IF sy-subrc = 0.
+    fc_icon_iname = ls_icon-internal.
+  ENDIF.
+ENDFORM.                    "zfrm_icon_get_iname_by_name
+
+*&---------------------------------------------------------------------*
+*&      Form  zfrm_icon_get_names_by_id
+*&---------------------------------------------------------------------*
+*       通过图标ID获取图标名称
+*----------------------------------------------------------------------*
+FORM zfrm_icon_get_names_by_id
+          USING VALUE(fv_id)
+          CHANGING fc_icon_name fc_icon_iname.
+  DATA: ls_icon TYPE icon.
+  SELECT SINGLE * INTO ls_icon FROM icon WHERE id = fv_id.
+  IF sy-subrc = 0.
+    fc_icon_name = ls_icon-name.
+    fc_icon_iname = ls_icon-internal.
+  ENDIF.
+ENDFORM.       
+
+**************************************************************************************
+
