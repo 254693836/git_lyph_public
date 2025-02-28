@@ -1,0 +1,52 @@
+REPORT zly_report.
+
+
+TABLES: ekko.
+
+DATA: gt_ekko TYPE TABLE OF ekko,
+      gs_ekko TYPE ekko.
+
+DATA: gt_fieldcat TYPE slis_t_fieldcat_alv,
+      gs_fieldcat TYPE slis_fieldcat_alv,
+      gt_events   TYPE slis_t_event,
+      gs_events   TYPE slis_alv_event,
+      gv_repid    TYPE sy-repid.
+
+gv_repid = sy-repid.
+
+SELECT * FROM ekko INTO TABLE gt_ekko UP TO 100 ROWS.
+
+PERFORM build_field_catalog.
+PERFORM display_alv.
+
+FORM build_field_catalog.
+  CLEAR gs_fieldcat.
+  gs_fieldcat-fieldname = 'EBELN'.  " 采购凭证号
+  gs_fieldcat-seltext_m = '采购凭证001'.
+  APPEND gs_fieldcat TO gt_fieldcat.
+
+  CLEAR gs_fieldcat.
+  gs_fieldcat-fieldname = 'BUKRS'.  " 公司代码
+  gs_fieldcat-seltext_m = '公司代码'.
+  APPEND gs_fieldcat TO gt_fieldcat.
+
+ENDFORM.
+
+FORM display_alv.
+  DATA: lt_sort TYPE slis_t_sortinfo_alv,
+        ls_sort TYPE slis_sortinfo_alv.
+
+  CLEAR ls_sort.
+  ls_sort-spos = 1.
+  ls_sort-fieldname = 'EBELN'.
+  ls_sort-up = 'X'.
+  APPEND ls_sort TO lt_sort.
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      i_callback_program = gv_repid
+      it_fieldcat        = gt_fieldcat
+      it_sort            = lt_sort
+    TABLES
+      t_outtab           = gt_ekko.
+ENDFORM.
