@@ -49,9 +49,9 @@ Sub SearchInFiles()
     End If
     On Error GoTo 0
     
-    ' 結果シートのヘッダー作成
+    ' 結果シートのヘッダー作成（「シート名」列を追加）
     wsResult.Cells.Clear
-    wsResult.Range("A1:C1").value = Array("ファイルパス", "キーワード", "セルの内容")
+    wsResult.Range("A1:D1").value = Array("ファイルパス", "シート名", "キーワード", "セルの内容")
     
     ' フォルダを再帰的に検索
     SearchFilesInFolder folderPath, searchValues, wsResult
@@ -62,7 +62,7 @@ End Sub
 ' 再帰処理でフォルダ内のExcelファイルを検索
 Sub SearchFilesInFolder(ByVal folderPath As String, ByVal searchValues As Object, ByVal wsResult As Worksheet)
     Dim fileName As String, filePath As String
-    Dim subFolder As Object ' ← Object 型に修正
+    Dim subFolder As Object
     Dim fso As Object, folder As Object
     Dim wb As Workbook, wsSearch As Worksheet
     Dim foundCell As Range, firstAddress As String
@@ -89,7 +89,7 @@ Sub SearchFilesInFolder(ByVal folderPath As String, ByVal searchValues As Object
     End If
     
     ' --- Excelファイルの検索 ---
-    fileName = Dir(folderPath & "\*.xlsx") ' ← フォルダ内のExcelファイルを取得
+    fileName = Dir(folderPath & "\*.xlsx") ' フォルダ内のExcelファイルを取得
     
     ' ファイルごとに検索
     Do While fileName <> ""
@@ -117,14 +117,15 @@ Sub SearchFilesInFolder(ByVal folderPath As String, ByVal searchValues As Object
                             If foundCell.Text Like "*" & searchValue & "*" Then
                                 lastRow = wsResult.Cells(Rows.Count, 1).End(xlUp).Row + 1
                                 wsResult.Cells(lastRow, 1).value = filePath
+                                wsResult.Cells(lastRow, 2).value = wsSearch.Name ' ★シート名を追加★
                                 
                                 ' キーワードを文字列として記録（001 が 1 になる問題防止）
-                                wsResult.Cells(lastRow, 2).NumberFormat = "@"
-                                wsResult.Cells(lastRow, 2).value = "'" & searchValue
+                                wsResult.Cells(lastRow, 3).NumberFormat = "@"
+                                wsResult.Cells(lastRow, 3).value = "'" & searchValue
                                 
                                 ' セルの内容を文字列として記録
-                                wsResult.Cells(lastRow, 3).NumberFormat = "@"
-                                wsResult.Cells(lastRow, 3).value = "'" & foundCell.Text
+                                wsResult.Cells(lastRow, 4).NumberFormat = "@"
+                                wsResult.Cells(lastRow, 4).value = "'" & foundCell.Text
                             End If
                             
                             ' 次の検索
