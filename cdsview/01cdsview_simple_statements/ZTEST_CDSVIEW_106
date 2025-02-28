@@ -1,0 +1,21 @@
+@AbapCatalog.sqlViewName: 'ZTESTCDSVIEW106'
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'ZTEST_CDSVIEW_106'
+@VDM.viewType: 'Basic'
+@Metadata.ignorePropagatedAnnotations: true
+define view ZTEST_CDSVIEW_106
+  with parameters
+    p_bukrs6 :bukrs,
+    p_werks6 :ewerk
+
+  as select from ZTEST_CDSVIEW_001
+                 (p_bukrs:$parameters.p_bukrs6,p_werks:$parameters.p_werks6)
+{
+  key ebeln,
+  key ebelp,
+      bukrs,
+      bstyp,
+      werks
+}

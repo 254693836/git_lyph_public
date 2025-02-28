@@ -1,0 +1,73 @@
+@AbapCatalog.sqlViewName: 'ZTESTCDSVIEW101'
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'ZTEST_CDSVIEW_101'
+@Metadata.ignorePropagatedAnnotations: true
+define view ZTEST_CDSVIEW_101
+  with parameters
+    p_bukrs :bukrs,
+    p_werks :ewerk
+
+  as select from ekko as k
+    inner join   ekpo as p on p.ebeln = k.ebeln
+  association [0..1] to ekkn as _ekkn on  p.ebeln     = _ekkn.ebeln
+                                      and p.ebelp     = _ekkn.ebelp
+                                      and _ekkn.zekkn = '01'
+
+{
+  key p.ebeln,
+  key p.ebelp,
+      concat(concat(p.ebeln,'/'), p.ebelp) as ponum,
+      k.bukrs,
+      k.bstyp,
+      case k.bstyp
+        when 'F' then '購買発注'
+        when 'K' then '購買契約'
+        when 'L' then '分納契約'
+        else '見積依頼'
+      end                                 as bstyp1,
+      case
+        when k.bsart = 'NB' then '1'
+        when k.bsart = 'AN' then '2'
+        else '0'
+      end                                 as bsart1,
+      k.bsart,
+      k.bsakz,
+      k.loekz,
+      k.statu,
+      k.aedat,
+      dats_add_days(k.aedat,1,'NULL')     as datea,
+      dats_add_days(k.aedat,-1,'NULL')    as dateb,
+      dats_add_months(k.aedat,1,'NULL')   as montha,
+      dats_add_months(k.aedat,-1,'NULL')  as monthb,
+      substring(k.aedat,1,4)              as yofaedat,
+      left(k.aedat,4)                     as yofaedat1,
+      substring(k.aedat,5,2)              as mofaedat,
+      left(k.aedat,6)                     as ymofaedat1,
+      substring(k.aedat,7,2)              as dofaedat,
+      k.ernam,
+      p.matnr,
+      p.werks,
+      p.menge,
+      p.meins,
+      p.netpr,
+      k.waers,
+      _ekkn.sakto,
+      _ekkn.kostl,
+      _ekkn.ps_psp_pnr,
+      _ekkn
+}
+where
+      k.bukrs = $parameters.p_bukrs
+  and p.werks = $parameters.p_werks
+//       k.bstyp =       'F'
+//  and(
+//       k.bsart =       'NB'
+//    or k.bsart =       'LP'
+//  )
+//  and(
+//       k.aedat between '20241008' and '20250118'
+//  )
+//  and  k.ernam like    'Z%'
+//  and  k.ernam like    '__1%'

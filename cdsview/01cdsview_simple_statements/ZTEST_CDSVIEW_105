@@ -1,0 +1,22 @@
+@AbapCatalog.sqlViewName: 'ZTESTCDSVIEW105'
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'ZTEST_CDSVIEW_105'
+@Metadata.ignorePropagatedAnnotations: true
+define view ZTEST_CDSVIEW_105
+  as select from ZTEST_CDSVIEW_003
+{
+  key matnr,
+      werks,
+      bwart,
+      menge
+}
+
+union all select from ZTEST_CDSVIEW_004
+{
+  key matnr,
+      werks,
+      bwart,
+      menge
+}

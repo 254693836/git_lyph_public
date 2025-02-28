@@ -1,0 +1,26 @@
+@AbapCatalog.sqlViewName: 'ZTESTLIST101SRV'
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'ZTEST_LIST_101_SRV'
+@Metadata.ignorePropagatedAnnotations: true
+//@OData.publish: true
+define view ZTEST_LIST_101_SRV
+  as select from ekko
+    inner join   ekpo on ekko.ebeln = ekpo.ebeln
+{
+  key ekpo.ebeln,
+  key ekpo.ebelp,
+      ekko.bukrs,
+      ekko.bstyp,
+      ekko.bsart,
+      ekpo.loekz,
+      ekpo.matnr,
+      ekpo.werks,
+      ekpo.lgort,
+      ekpo.matkl,
+      ekpo.menge,
+      ekpo.meins,
+      ekpo.netpr,
+      ekko.waers
+}

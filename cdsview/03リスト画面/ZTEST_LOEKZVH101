@@ -1,0 +1,21 @@
+@AbapCatalog.sqlViewName: 'ZTESTLOEKZVH101'
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'ZTEST_LOEKZVH101'
+@Metadata.ignorePropagatedAnnotations: true
+@ObjectModel.resultSet.sizeCategory: #XS
+define view ZTEST_LOEKZVH101
+  as select from dd07t
+{
+      @ObjectModel.text.element: ['Ddtext']
+      @UI.textArrangement: #TEXT_LAST
+  key domvalue_l as DomvalueL,
+
+      @Semantics.text: true
+      ddtext     as Ddtext
+}
+where
+      domname    = 'XFELD'
+  and ddlanguage = $session.system_language
+  and as4local   = 'A'

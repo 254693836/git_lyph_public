@@ -1,0 +1,27 @@
+@AbapCatalog.sqlViewName: 'ZTESTCDSVIEW102'
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'ZTEST_CDSVIEW_102'
+@Metadata.ignorePropagatedAnnotations: true
+define view ZTEST_CDSVIEW_102
+  as select from vbak
+{
+  key vbeln,
+      cast(decimal_shift(amount => netwr, currency => waerk) as abap.curr( 11, 2 ))                                        as netwr1,
+      waerk,
+      $session.user                                                                                                        as system_user,
+      $session.client                                                                                                      as system_client,
+      $session.system_language                                                                                             as system_language,
+      $session.system_date                                                                                                 as system_date,
+      $session.user_date                                                                                                   as user_date,
+      $session.user_timezone                                                                                               as user_timezone,
+      tstmp_current_utctimestamp()                                                                                         as TimeStampToday,
+      tstmp_to_dats(tstmp_current_utctimestamp() , 'JAPAN', $session.client, 'NULL')                                       as DateTodayJapan,
+      tstmp_to_tims(tstmp_current_utctimestamp() , 'JAPAN', $session.client, 'NULL')                                       as TimeTodayJapan,
+      tstmp_to_dats(tstmp_current_utctimestamp() , abap_system_timezone($session.client, 'NULL'), $session.client, 'NULL') as DateToday,
+      tstmp_to_tims(tstmp_current_utctimestamp() , abap_system_timezone($session.client, 'NULL'), $session.client, 'NULL') as TimeToday
+}
+where
+      waerk =  'JPY'
+  and netwr <> 0

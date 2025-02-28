@@ -1,0 +1,22 @@
+@AbapCatalog.sqlViewName: 'ZTESTCDSVIEW104'
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'ZTEST_CDSVIEW_104'
+@Metadata.ignorePropagatedAnnotations: true
+define view ZTEST_CDSVIEW_104
+  as select from matdoc
+{
+  key matnr,
+      werks,
+      bwart,
+      sum(menge) as menge
+}
+where
+      matnr is not initial
+  and bwart = '102'
+  and matnr = 'ZZWH00002'
+group by
+  matnr,
+  werks,
+  bwart

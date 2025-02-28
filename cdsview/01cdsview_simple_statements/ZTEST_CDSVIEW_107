@@ -1,0 +1,8 @@
+
+// 拡張する
+@AbapCatalog.sqlViewAppendName: 'ZTESTCDSVIEW107'
+@EndUserText.label: 'ZTEST_CDSVIEW_107'
+extend view I_Material with ZTEST_CDSVIEW_107
+{
+  mara.ersda
+}

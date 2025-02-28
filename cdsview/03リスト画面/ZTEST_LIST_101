@@ -1,0 +1,97 @@
+@AbapCatalog.sqlViewName: 'ZTESTLIST101'
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'ZTEST_LIST_101'
+@Metadata.ignorePropagatedAnnotations: true
+@Metadata.allowExtensions:true
+@OData.publish: true
+define view ZTEST_LIST_101
+  as select from    ekko
+    inner join      ekpo on ekko.ebeln = ekpo.ebeln
+    left outer join makt on  ekpo.matnr = makt.matnr
+                         and makt.spras = '1'
+
+  association [0..1] to I_CompanyCodeStdVH as _CompanyCode on $projection.bukrs = _CompanyCode.CompanyCode
+  association [0..1] to I_Material         as _Material    on $projection.Material = _Material.Material
+{
+  key ekpo.ebeln,
+  key ekpo.ebelp,
+
+      //      @Consumption.filter.defaultValue: '0011'
+      @Consumption.filter: {selectionType: #SINGLE, multipleSelections: false}
+      @ObjectModel.foreignKey.association: '_CompanyCode'
+      ekko.bukrs,
+
+      @UI.hidden: true
+      @ObjectModel.readOnly: true
+
+      case
+        when ekko.bstyp  = 'A' then  2 -- | 2: yellow colour
+        when ekko.bstyp  = 'K' then  3 -- | 3: green colour
+        when ekko.bstyp  = 'N' then  1 -- | 1: red colour
+        when ekko.bstyp  = 'F' then  1 -- | 1: red colour
+        else 0                              -- | 0: neutral
+      end                         as ChangeOrderStatusCriticality,
+
+      @Consumption.filter.defaultValue: 'F'
+      @Consumption.filter: {selectionType: #SINGLE, multipleSelections: false}
+      @Consumption.valueHelpDefinition.entity: {
+        name: 'ZTEST_BSTYPVH',
+        element: 'DomvalueL'
+      }
+      ekko.bstyp,
+      
+      ekko.bsart,
+
+      @Consumption.valueHelpDefinition.entity: {
+        name: 'ZTEST_LOEKZVH101',
+        element: 'DomvalueL'
+      }
+      case
+        when ekpo.loekz = 'L'then 'X'
+        else ekpo.loekz
+      end                         as loekz,
+
+      @ObjectModel.foreignKey.association: '_Material'
+      @ObjectModel.text.element: ['maktx']
+      @UI.textArrangement: #TEXT_LAST
+      ekpo.matnr                  as Material,
+
+      @Semantics.text: true
+      makt.maktx,
+      ekpo.werks,
+      ekpo.lgort,
+      ekpo.matkl,
+
+      @UI.hidden: true
+      @ObjectModel.readOnly: true
+      case
+        when ekpo.menge < 100                       then  2 -- | 2: yellow colour
+        when ekpo.menge >= 100 and ekpo.menge < 200 then  3 -- | 3: green colour
+        when ekpo.menge >= 200 and ekpo.menge < 300 then  1 -- | 1: red colour
+        else 0                                              -- | 0: neutral
+      end                       as StatusCriticality,
+
+      @Semantics.quantity.unitOfMeasure: 'meins'
+      ekpo.menge,
+
+      @Semantics.unitOfMeasure: true
+      ekpo.meins,
+
+      @Semantics.amount.currencyCode: 'waers'
+      @DefaultAggregation: #SUM
+      @Aggregation.default: #SUM
+      ekpo.netpr,
+
+      @Semantics.currencyCode:true
+      ekko.waers,
+
+      @EndUserText: {label: 'Header Note'}
+      @ObjectModel.readOnly: true
+//      @ObjectModel.virtualElement: true
+//      @ObjectModel.virtualElementCalculatedBy: 'ABAP:ZCL_MM_PO_HEADER_NOTE'
+      cast('' as abap.char(1333)) as HeaderNote,
+      _Material,
+      _CompanyCode
+}
