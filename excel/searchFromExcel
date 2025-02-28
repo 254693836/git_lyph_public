@@ -1,0 +1,125 @@
+'　★★★★説明★★★★★★★
+' Sheet1・B2は検索対象フォルダ
+' Sheet1・B4～13は検索値
+' Resultに結果を出力する
+
+
+Option Explicit
+
+Sub SearchInFiles()
+    Dim ws As Worksheet, wsResult As Worksheet
+    Dim folderPath As String
+    Dim fileName As String, filePath As String
+    Dim wb As Workbook, wsSearch As Worksheet
+    Dim foundCell As Range, firstAddress As String
+    Dim lastRow As Long
+    Dim searchValues As Object
+    Dim rng As Range, cell As Range
+    Dim searchValue As Variant
+    Dim keyArray As Variant
+    Dim i As Integer
+    
+    ' 設定シート
+    Set ws = ThisWorkbook.Sheets("Sheet1")
+    folderPath = Trim(ws.Range("B2").Value)
+    
+    ' フォルダが未入力の場合のエラーチェック
+    If folderPath = "" Then
+        MsgBox "フォルダパスが入力されていません。", vbExclamation
+        Exit Sub
+    End If
+    
+    ' フォルダパスの末尾に "\" を追加
+    If Right(folderPath, 1) <> "\" Then folderPath = folderPath & "\"
+    
+    ' 検索キーリストの作成（B4:B13の範囲で値があるものを取得）
+    Set searchValues = CreateObject("Scripting.Dictionary")
+    Set rng = ws.Range("B4:B13")
+    
+    For Each cell In rng
+        searchValue = Trim(cell.Value)
+        If searchValue <> "" Then
+            searchValues(searchValue) = True
+        End If
+    Next cell
+    
+    ' 検索キーがない場合は終了
+    If searchValues.Count = 0 Then
+        MsgBox "検索キーワードが入力されていません。", vbExclamation
+        Exit Sub
+    End If
+    
+    ' Dictionaryのキーを配列として取得
+    keyArray = searchValues.Keys
+    
+    ' 結果シートのセットアップ
+    On Error Resume Next
+    Set wsResult = ThisWorkbook.Sheets("Result")
+    If wsResult Is Nothing Then
+        Set wsResult = ThisWorkbook.Sheets.Add
+        wsResult.Name = "Result"
+    End If
+    On Error GoTo 0
+    
+    ' 結果シートのヘッダー作成
+    wsResult.Cells.Clear
+    wsResult.Range("A1:C1").Value = Array("ファイルパス", "キーワード", "セルの内容")
+    
+    ' フォルダ内のExcelファイルを検索
+    fileName = Dir(folderPath & "*.xlsx")
+    
+    ' ファイルごとに検索
+    Do While fileName <> ""
+        filePath = folderPath & fileName
+        
+        ' Excelファイルを開く
+        On Error Resume Next
+        Set wb = Workbooks.Open(filePath, ReadOnly:=True, UpdateLinks:=False)
+        On Error GoTo 0
+        
+        If Not wb Is Nothing Then
+            ' 各シートを検索
+            For Each wsSearch In wb.Sheets
+                ' 各検索キーワードについて検索（配列をループ）
+                For i = LBound(keyArray) To UBound(keyArray)
+                    searchValue = keyArray(i) ' 配列から値を取得
+                    
+                    Set foundCell = wsSearch.Cells.Find(What:=searchValue, LookAt:=xlPart, MatchCase:=False)
+                    
+                    If Not foundCell Is Nothing Then
+                        firstAddress = foundCell.Address ' 最初の検索結果のアドレス
+                        
+                        Do
+                            ' 部分一致の厳密なチェック
+                            If foundCell.Text Like "*" & searchValue & "*" Then
+                                lastRow = wsResult.Cells(Rows.Count, 1).End(xlUp).Row + 1
+                                wsResult.Cells(lastRow, 1).Value = filePath
+                                
+                                ' キーワードを文字列として記録
+                                wsResult.Cells(lastRow, 2).NumberFormat = "@"
+                                wsResult.Cells(lastRow, 2).Value = "'" & searchValue
+                                
+                                ' セルの内容を文字列として記録
+                                wsResult.Cells(lastRow, 3).NumberFormat = "@"
+                                wsResult.Cells(lastRow, 3).Value = "'" & foundCell.Text
+                            End If
+                            
+                            ' 次の検索
+                            Set foundCell = wsSearch.Cells.FindNext(foundCell)
+                            
+                        Loop While Not foundCell Is Nothing And foundCell.Address <> firstAddress
+                    End If
+                Next i
+            Next wsSearch
+            
+            ' ファイルを閉じる
+            wb.Close False
+            Set wb = Nothing
+        End If
+        
+        ' 次のファイル
+        fileName = Dir
+    Loop
+    
+    MsgBox "検索が完了しました。", vbInformation
+End Sub
