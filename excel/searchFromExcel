@@ -9,19 +9,13 @@ Option Explicit
 Sub SearchInFiles()
     Dim ws As Worksheet, wsResult As Worksheet
     Dim folderPath As String
-    Dim fileName As String, filePath As String
-    Dim wb As Workbook, wsSearch As Worksheet
-    Dim foundCell As Range, firstAddress As String
-    Dim lastRow As Long
     Dim searchValues As Object
     Dim rng As Range, cell As Range
     Dim searchValue As Variant
-    Dim keyArray As Variant
-    Dim i As Integer
     
     ' 設定シート
     Set ws = ThisWorkbook.Sheets("Sheet1")
-    folderPath = Trim(ws.Range("B2").Value)
+    folderPath = Trim(ws.Range("B2").value)
     
     ' フォルダが未入力の場合のエラーチェック
     If folderPath = "" Then
@@ -29,15 +23,12 @@ Sub SearchInFiles()
         Exit Sub
     End If
     
-    ' フォルダパスの末尾に "\" を追加
-    If Right(folderPath, 1) <> "\" Then folderPath = folderPath & "\"
-    
     ' 検索キーリストの作成（B4:B13の範囲で値があるものを取得）
     Set searchValues = CreateObject("Scripting.Dictionary")
     Set rng = ws.Range("B4:B13")
     
     For Each cell In rng
-        searchValue = Trim(cell.Value)
+        searchValue = Trim(cell.value)
         If searchValue <> "" Then
             searchValues(searchValue) = True
         End If
@@ -48,9 +39,6 @@ Sub SearchInFiles()
         MsgBox "検索キーワードが入力されていません。", vbExclamation
         Exit Sub
     End If
-    
-    ' Dictionaryのキーを配列として取得
-    keyArray = searchValues.Keys
     
     ' 結果シートのセットアップ
     On Error Resume Next
@@ -63,14 +51,49 @@ Sub SearchInFiles()
     
     ' 結果シートのヘッダー作成
     wsResult.Cells.Clear
-    wsResult.Range("A1:C1").Value = Array("ファイルパス", "キーワード", "セルの内容")
+    wsResult.Range("A1:C1").value = Array("ファイルパス", "キーワード", "セルの内容")
     
-    ' フォルダ内のExcelファイルを検索
-    fileName = Dir(folderPath & "*.xlsx")
+    ' フォルダを再帰的に検索
+    SearchFilesInFolder folderPath, searchValues, wsResult
+    
+    MsgBox "検索が完了しました。", vbInformation
+End Sub
+
+' 再帰処理でフォルダ内のExcelファイルを検索
+Sub SearchFilesInFolder(ByVal folderPath As String, ByVal searchValues As Object, ByVal wsResult As Worksheet)
+    Dim fileName As String, filePath As String
+    Dim subFolder As Object ' ← Object 型に修正
+    Dim fso As Object, folder As Object
+    Dim wb As Workbook, wsSearch As Worksheet
+    Dim foundCell As Range, firstAddress As String
+    Dim lastRow As Long
+    Dim searchValue As Variant
+    Dim i As Integer
+    Dim keyArray As Variant
+    
+    ' Dictionaryのキーを配列として取得
+    keyArray = searchValues.Keys
+    
+    ' FileSystemObject の初期化
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    
+    ' フォルダオブジェクトを取得
+    On Error Resume Next
+    Set folder = fso.GetFolder(folderPath)
+    On Error GoTo 0
+    
+    ' フォルダが存在しない場合は処理を終了
+    If folder Is Nothing Then
+        Debug.Print "フォルダが見つかりません: " & folderPath
+        Exit Sub
+    End If
+    
+    ' --- Excelファイルの検索 ---
+    fileName = Dir(folderPath & "\*.xlsx") ' ← フォルダ内のExcelファイルを取得
     
     ' ファイルごとに検索
     Do While fileName <> ""
-        filePath = folderPath & fileName
+        filePath = folderPath & "\" & fileName
         
         ' Excelファイルを開く
         On Error Resume Next
@@ -87,27 +110,27 @@ Sub SearchInFiles()
                     Set foundCell = wsSearch.Cells.Find(What:=searchValue, LookAt:=xlPart, MatchCase:=False)
                     
                     If Not foundCell Is Nothing Then
-                        firstAddress = foundCell.Address ' 最初の検索結果のアドレス
+                        firstAddress = foundCell.address ' 最初の検索結果のアドレス
                         
                         Do
                             ' 部分一致の厳密なチェック
                             If foundCell.Text Like "*" & searchValue & "*" Then
                                 lastRow = wsResult.Cells(Rows.Count, 1).End(xlUp).Row + 1
-                                wsResult.Cells(lastRow, 1).Value = filePath
+                                wsResult.Cells(lastRow, 1).value = filePath
                                 
-                                ' キーワードを文字列として記録
+                                ' キーワードを文字列として記録（001 が 1 になる問題防止）
                                 wsResult.Cells(lastRow, 2).NumberFormat = "@"
-                                wsResult.Cells(lastRow, 2).Value = "'" & searchValue
+                                wsResult.Cells(lastRow, 2).value = "'" & searchValue
                                 
                                 ' セルの内容を文字列として記録
                                 wsResult.Cells(lastRow, 3).NumberFormat = "@"
-                                wsResult.Cells(lastRow, 3).Value = "'" & foundCell.Text
+                                wsResult.Cells(lastRow, 3).value = "'" & foundCell.Text
                             End If
                             
                             ' 次の検索
                             Set foundCell = wsSearch.Cells.FindNext(foundCell)
                             
-                        Loop While Not foundCell Is Nothing And foundCell.Address <> firstAddress
+                        Loop While Not foundCell Is Nothing And foundCell.address <> firstAddress
                     End If
                 Next i
             Next wsSearch
@@ -121,5 +144,10 @@ Sub SearchInFiles()
         fileName = Dir
     Loop
     
-    MsgBox "検索が完了しました。", vbInformation
+    ' --- サブフォルダの検索 ---
+    For Each subFolder In folder.subfolders
+        Debug.Print "検索対象フォルダ: " & subFolder.Path ' 確認用出力
+        SearchFilesInFolder subFolder.Path, searchValues, wsResult
+    Next subFolder
 End Sub
+
