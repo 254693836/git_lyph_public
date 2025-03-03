@@ -1,0 +1,22 @@
+@echo off
+setlocal
+
+set fileFrom=C:\ｘｘｘ\
+set file1=カレンダー
+set file2=sxxxxx
+set fileType=.xlsm
+
+set fileTo=C:\GGY\Tmp\バック-family\
+
+for /f "tokens=2 delims==" %%i in ('"wmic os get localdatetime /value"') do set datetime=%%i
+set timestamp=%datetime:~0,12%
+
+echo F|xcopy %fileFrom%%file1%%fileType% %fileTo%%file1%-%timestamp%%fileType% /y /r /i /f
+echo F|xcopy %fileFrom%%file2%%fileType% %fileTo%%file2%-%timestamp%%fileType% /y /r /i /f
+
+start %fileFrom%%file1%%fileType%
+start %fileFrom%%file2%%fileType%
+
+start C:\xxxx覧.xlsx
+
+endlocal
