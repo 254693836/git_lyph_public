@@ -6,7 +6,7 @@ set file1=カレンダー
 set file2=sxxxxx
 set fileType=.xlsm
 
-set fileTo=C:\GGY\Tmp\バック-family\
+set fileTo=C:\xxxxx-family\
 
 for /f "tokens=2 delims==" %%i in ('"wmic os get localdatetime /value"') do set datetime=%%i
 set timestamp=%datetime:~0,12%
