@@ -1,0 +1,64 @@
+*&---------------------------------------------------------------------*
+*& Report ZDEV_87_TRYCATCH001
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT zdev_87_trycatch001.
+
+* 001
+TRY.
+    DATA(lv_num1) = 10 / 0.  " 0 で除算（エラー）
+  CATCH cx_sy_arithmetic_error INTO DATA(lo_error).
+    WRITE : '例010、エラー発生:', lo_error->get_text( ).
+    WRITE /.
+ENDTRY.
+
+
+
+* 002
+TRY.
+    DATA(lv_value) = 'ABC'.
+    DATA(lv_num2) = lv_value + 10.  " 文字列に数値を加算（エラー）
+
+  CATCH cx_sy_conversion_error INTO DATA(lo_conv_error).
+    WRITE / :  '例020型変換エラー:', lo_conv_error->get_text( ).
+    WRITE /.
+
+  CATCH cx_sy_arithmetic_error INTO DATA(lo_math_error).
+    WRITE:  '例021算術エラー:', lo_math_error->get_text( ).
+    WRITE /.
+
+  CATCH cx_root INTO DATA(lo_general_error).
+    WRITE:  '例023その他のエラー:', lo_general_error->get_text( ).
+    WRITE /.
+ENDTRY.
+
+
+* 003
+DATA: lt_data TYPE TABLE OF string.
+
+TRY.
+    APPEND 'A' TO lt_data.
+    APPEND 'B' TO lt_data.
+    CLEAR lt_data.  " データクリア
+    DATA(lv_num) = 10 / 0.  " 0 除算エラー
+  CATCH cx_sy_arithmetic_error INTO DATA(lo_error3).
+    WRITE:  '例031エラー:', lo_error->get_text( ).
+    WRITE /.
+  CLEANUP.
+    WRITE:  '例032,後処理実行（リソース解放など）'.
+    WRITE /.
+ENDTRY.
+
+CLASS lcl_my_exception DEFINITION INHERITING FROM cx_static_check.
+ENDCLASS.
+
+CLASS lcl_my_exception IMPLEMENTATION.
+ENDCLASS.
+
+TRY.
+    RAISE EXCEPTION TYPE lcl_my_exception.
+  CATCH lcl_my_exception INTO DATA(lo_my_error).
+    WRITE:  '例040,カスタムエラー発生:', lo_my_error->get_text( ).
+    WRITE /.
+ENDTRY.
