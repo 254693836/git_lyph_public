@@ -62,3 +62,17 @@ TRY.
     WRITE:  '例040,カスタムエラー発生:', lo_my_error->get_text( ).
     WRITE /.
 ENDTRY.
+
+
+
+カテゴリ	例外クラス	主なエラー内容
+算術エラー	cx_sy_arithmetic_error	ゼロ除算、数値オーバーフロー
+型変換	cx_sy_conversion_error	数値⇔文字列の変換エラー
+範囲エラー	cx_sy_range_error	文字列や配列の範囲外アクセス
+データベース	cx_sy_open_sql_db	SQL 実行エラー
+ITAB	cx_sy_itab_duplicate_key	INSERT でキー重複
+ITAB	cx_sy_itab_line_not_found	READ TABLE でデータなし
+ファイル	cx_sy_file_open_error	ファイルを開けない
+クラス	cx_sy_create_object_error	インスタンス生成エラー
+一般	cx_root	すべてのエラーをキャッチ
+
