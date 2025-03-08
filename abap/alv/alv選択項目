@@ -1,0 +1,137 @@
+*&---------------------------------------------------------------------*
+*& Report ZDEV_87_SELECT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT zdev_87_select.
+
+* 数据表
+TABLES: bkpf.
+
+
+
+* 选择屏幕控件
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE TEXT-t01.
+  PARAMETERS: p_bukrs2 TYPE BUKRS. "公司代码（必填）
+  PARAMETERS: P_BUKRS TYPE BUKRS OBLIGATORY.
+  SELECT-OPTIONS: s_gjahr FOR bkpf-gjahr. "会计年度范围
+  SELECT-OPTIONS: s_belnr FOR bkpf-belnr. "凭证号范围
+SELECTION-SCREEN END OF BLOCK b1.
+
+* 单选按钮组
+SELECTION-SCREEN BEGIN OF BLOCK b2 WITH FRAME TITLE TEXT-t02.
+  PARAMETERS: r_all RADIOBUTTON GROUP r1 DEFAULT 'X'. "查询所有凭证
+  PARAMETERS: r_open RADIOBUTTON GROUP r1. "仅查询未清项
+SELECTION-SCREEN END OF BLOCK b2.
+
+* 复选框
+SELECTION-SCREEN BEGIN OF BLOCK b3 WITH FRAME TITLE TEXT-t03.
+  PARAMETERS: c_alv AS CHECKBOX DEFAULT 'X' USER-COMMAND chk001. "使用ALV显示
+SELECTION-SCREEN END OF BLOCK b3.
+
+* 下拉列表（列表框）
+SELECTION-SCREEN BEGIN OF BLOCK b4 WITH FRAME TITLE TEXT-t04.
+  PARAMETERS: p_sort TYPE char10 AS LISTBOX VISIBLE LENGTH 20. "排序方式
+SELECTION-SCREEN END OF BLOCK b4.
+
+AT SELECTION-SCREEN.
+  CASE sy-ucomm.
+    WHEN 'CHK001'.
+      IF c_alv = 'X'.
+        MESSAGE 'checboxのイベントをトリガーされました。on' TYPE 'I'.
+      ELSE.
+        MESSAGE 'checboxのイベントをトリガーされました。off' TYPE 'I'.
+      ENDIF.
+  ENDCASE.
+
+* 填充下拉列表选项
+INITIALIZATION.
+  CALL FUNCTION 'VRM_SET_VALUES'
+    EXPORTING
+      id     = 'P_SORT'
+      values = VALUE vrm_values(
+        ( key = 'DATE' text = '按日期排序' )
+        ( key = 'NUMBER' text = '按凭证号排序' )
+      ).
+
+* 监听选择屏幕事件 - 当用户勾选复选框时触发
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR  p_bukrs2.
+  IF s_belnr <> ''.
+    MESSAGE 'イベントをトリガーされました' TYPE 'I'.
+  ENDIF.
+
+* 主逻辑
+START-OF-SELECTION.
+  DATA: lt_data TYPE TABLE OF bkpf,
+        ls_data TYPE bkpf.
+
+  SELECT   * FROM bkpf UP TO 20 ROWS.
+
+    APPEND bkpf TO lt_data.
+  ENDSELECT.
+
+  " 判断是否使用 ALV 显示
+  IF c_alv = 'X'.
+    PERFORM display_alv USING lt_data.
+  ELSE.
+    LOOP AT lt_data INTO ls_data.
+      WRITE: / ls_data-bukrs, ls_data-gjahr, ls_data-belnr.
+    ENDLOOP.
+  ENDIF.
+
+* ALV 显示
+FORM display_alv USING lt_data TYPE table.
+  DATA: lt_fieldcat TYPE slis_t_fieldcat_alv,
+        ls_fieldcat TYPE slis_fieldcat_alv,
+        lt_events   TYPE slis_t_event,
+        ls_layout   TYPE slis_layout_alv.
+
+  " 字段设置
+  ls_fieldcat-fieldname = 'BUKRS'.
+  ls_fieldcat-seltext_m = '公司代码'.
+  APPEND ls_fieldcat TO lt_fieldcat.
+
+  ls_fieldcat-fieldname = 'GJAHR'.
+  ls_fieldcat-seltext_m = '会计年度'.
+  APPEND ls_fieldcat TO lt_fieldcat.
+
+  ls_fieldcat-fieldname = 'BELNR'.
+  ls_fieldcat-seltext_m = '凭证号'.
+  APPEND ls_fieldcat TO lt_fieldcat.
+
+  ls_fieldcat-fieldname = 'CHECKED'.
+  ls_fieldcat-seltext_m = '选中'.
+  ls_fieldcat-checkbox = 'X'.
+  APPEND ls_fieldcat TO lt_fieldcat.
+
+
+  " ALV 调用
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      is_layout   = ls_layout
+      it_fieldcat = lt_fieldcat
+    TABLES
+      t_outtab    = lt_data.
+ENDFORM.
+
+
+*快速调整字体大小  Ctrl ＋ 鼠标滚轮
+*剪切一行   Ctrl + Shift + X
+*删除一行   Ctrl + Shift + L
+*复制一行   Ctrl + Shift + T
+*转成小写   Ctrl + L
+*转成大写   Ctrl + U
+*大小写相互转换   Ctrl + K
+*取消    Ctrl + Z
+*重做    Ctrl + Y
+*原地复制一行 Ctrl + D
+* 选行复制 alt+鼠标左键
+* 选行复制 alt+鼠标左键
+* 快捷键 ctrl+f  搜索
+*LEFT-JUSTIFIED  行靠左
+*注意删除键
+*INS   FN+IN
+*  ctri+d 复制
+*全注释可以 ctri+win+<     全注释可以 ctri+win+>
+*ctri+tab 选中自动生成
+*SHIFT+f1 整齐排列ABAP代码,也修改成大写字母
