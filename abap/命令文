@@ -139,3 +139,15 @@ FORM additional_examples.
   CONDENSE lv_str.
   WRITE: / 'CONDENSE結果:', lv_str.
 ENDFORM.
+
+
+" FOR ALL ENTRIES を使って、マテリアル番号に対応するレコードを一度に取得
+SELECT * FROM mara
+  INTO TABLE lt_data
+  FOR ALL ENTRIES IN lt_materials
+  WHERE matnr = lt_materials-matnr.
+
+" 取得したデータを表示
+LOOP AT lt_data.
+  WRITE: / lt_data-matnr, lt_data-mtart, lt_data-mbrsh.
+ENDLOOP.
