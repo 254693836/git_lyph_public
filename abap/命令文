@@ -207,4 +207,35 @@ LOOP AT lt_ekpo INTO ls_ekpo.
           '品目番号:', ls_ekpo-matnr,
           '数量:', ls_ekpo-menge.
 ENDLOOP.
+************************************
+DATA: lt_ekko       TYPE TABLE OF ekko,   " 購買発注ヘッダデータ
+      lt_ekpo       TYPE TABLE OF ekpo,   " 購買発注明細データ
+      ls_ekpo       TYPE ekpo.            " ワークエリア
+
+" 1. 購買発注データを取得
+SELECT ebeln, ekorg, bukrs 
+  INTO TABLE lt_ekko
+  FROM ekko
+  WHERE bukrs = '1000'.
+
+" 2. 臨時の内部テーブル変数を利用して重複削除
+DATA(lt_ekko_uniq) = lt_ekko. " 一時的な内部テーブル
+SORT lt_ekko_uniq BY ebeln.
+DELETE ADJACENT DUPLICATES FROM lt_ekko_uniq COMPARING ebeln.
+
+" 3. FOR ALL ENTRIES を使用
+IF lt_ekko_uniq IS NOT INITIAL.
+  SELECT ebeln, ebelp, matnr, menge
+    INTO TABLE lt_ekpo
+    FROM ekpo
+    FOR ALL ENTRIES IN lt_ekko_uniq
+    WHERE ebeln = lt_ekko_uniq-ebeln.
+ENDIF.
+
+" 4. 取得したデータを LOOP で処理
+LOOP AT lt_ekpo INTO ls_ekpo.
+  WRITE: / '発注番号:', ls_ekpo-ebeln,
+          '品目番号:', ls_ekpo-matnr,
+          '数量:', ls_ekpo-menge.
+ENDLOOP.
 
