@@ -1,0 +1,141 @@
+REPORT z_abap_examples.
+
+*----------------------------------------------------------*
+* データ定義
+*----------------------------------------------------------*
+DATA: lt_mara TYPE TABLE OF mara,  " 内部テーブル
+      wa_mara TYPE mara,           " ワークエリア
+      lv_matnr TYPE matnr,
+      lv_str   TYPE string,
+      lv_len   TYPE i,
+      lv_index TYPE i,
+      lv_char  TYPE char1,
+      lv_flag  TYPE abap_bool.
+
+*----------------------------------------------------------*
+* メイン処理
+*----------------------------------------------------------*
+START-OF-SELECTION.
+  PERFORM get_data.
+  PERFORM process_data.
+  PERFORM display_data.
+  PERFORM additional_examples.
+
+*----------------------------------------------------------*
+* データ取得サブルーチン
+*----------------------------------------------------------*
+FORM get_data.
+  SELECT * FROM mara INTO TABLE lt_mara UP TO 10 ROWS.
+  IF sy-subrc = 0.
+    WRITE: / 'データ取得成功'.
+  ELSE.
+    WRITE: / 'データ取得失敗'.
+  ENDIF.
+ENDFORM.
+
+*----------------------------------------------------------*
+* データ処理サブルーチン
+*----------------------------------------------------------*
+FORM process_data.
+  LOOP AT lt_mara INTO wa_mara.
+    " 文字列操作例: 品目番号の最初の3文字を取得
+    lv_matnr = wa_mara-matnr.
+    lv_str = lv_matnr+0(3). " LEFT(lv_matnr, 3) と同等
+    
+    " CASE 文の使用例
+    CASE wa_mara-mtart.
+      WHEN 'FERT'.
+        WRITE: / wa_mara-matnr, '製品'.
+      WHEN 'HALB'.
+        WRITE: / wa_mara-matnr, '中間品'.
+      WHEN OTHERS.
+        WRITE: / wa_mara-matnr, 'その他'.
+    ENDCASE.
+  ENDLOOP.
+ENDFORM.
+
+*----------------------------------------------------------*
+* データ表示サブルーチン
+*----------------------------------------------------------*
+FORM display_data.
+  LOOP AT lt_mara INTO wa_mara.
+    WRITE: / wa_mara-matnr, wa_mara-mtart.
+  ENDLOOP.
+
+  " TRY...CATCH の使用例
+  TRY.
+    lv_str = wa_mara-matnr && '-' && wa_mara-mtart. " CONCAT の例
+    WRITE: / '結合結果:', lv_str.
+  CATCH cx_root INTO DATA(lx_error).
+    WRITE: / 'エラー発生:', lx_error->get_text( ).
+  ENDTRY.
+ENDFORM.
+
+*----------------------------------------------------------*
+* 追加のABAP命令文の例
+*----------------------------------------------------------*
+FORM additional_examples.
+  " WHILE ループの例
+  lv_index = 1.
+  WHILE lv_index <= 5.
+    WRITE: / 'WHILEループ:', lv_index.
+    lv_index = lv_index + 1.
+  ENDWHILE.
+
+  " DO ループの例
+  lv_index = 1.
+  DO 5 TIMES.
+    WRITE: / 'DOループ:', lv_index.
+    lv_index = lv_index + 1.
+  ENDDO.
+
+  " FIELD-SYMBOLS の使用例
+  FIELD-SYMBOLS: <fs_mara> TYPE mara.
+  LOOP AT lt_mara ASSIGNING <fs_mara>.
+    WRITE: / 'FIELD-SYMBOLS:', <fs_mara>-matnr.
+  ENDLOOP.
+
+  " SELECT SINGLE の例
+  DATA: wa_single TYPE mara.
+  SELECT SINGLE * FROM mara INTO wa_single WHERE matnr = '123456'.
+  IF sy-subrc = 0.
+    WRITE: / 'SINGLE SELECT 成功:', wa_single-matnr.
+  ELSE.
+    WRITE: / 'データが見つかりません'.
+  ENDIF.
+
+  " STRLEN で文字列長取得
+  lv_str = 'ABAP String Length'.
+  lv_len = STRLEN( lv_str ).
+  WRITE: / '文字列の長さ:', lv_len.
+
+  " TRANSLATE の使用例
+  TRANSLATE lv_str TO UPPER CASE.
+  WRITE: / '大文字変換:', lv_str.
+
+  " REPLACE の使用例
+  REPLACE 'ABAP' WITH 'SAP' INTO lv_str.
+  WRITE: / '文字列置換:', lv_str.
+
+  " STRING CONCATENATION の例
+  CONCATENATE 'Hello' 'World' INTO lv_str SEPARATED BY space.
+  WRITE: / '文字列結合:', lv_str.
+
+  " SHIFT の使用例
+  lv_str = 'ABAP Example'.
+  SHIFT lv_str LEFT BY 2 PLACES.
+  WRITE: / 'SHIFT結果:', lv_str.
+
+  " SPLIT の使用例
+  DATA: lt_split TYPE TABLE OF string,
+        lv_part TYPE string.
+  SPLIT 'A,B,C,D' AT ',' INTO TABLE lt_split.
+  LOOP AT lt_split INTO lv_part.
+    WRITE: / 'SPLIT結果:', lv_part.
+  ENDLOOP.
+
+  " CONDENSE の使用例
+  lv_str = '  ABAP    Example  '.
+  CONDENSE lv_str.
+  WRITE: / 'CONDENSE結果:', lv_str.
+ENDFORM.
