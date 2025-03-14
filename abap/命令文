@@ -151,3 +151,26 @@ SELECT * FROM mara
 LOOP AT lt_data.
   WRITE: / lt_data-matnr, lt_data-mtart, lt_data-mbrsh.
 ENDLOOP.
+****************************
+
+DATA: lv_matnr TYPE matnr,   " マテリアル番号
+      lv_mtart TYPE mtart,   " マテリアルタイプ
+      lv_maktx TYPE maktx.   " マテリアルの名前（テキスト）
+
+lv_matnr = '1000001'.  " 検索条件（マテリアル番号）
+
+SELECT SINGLE a.matnr, a.mtart, b.maktx
+  FROM mara AS a
+  INNER JOIN makt AS b
+  ON a.matnr = b.matnr
+  INTO (lv_matnr, lv_mtart, lv_maktx)
+  WHERE a.matnr = lv_matnr.
+
+IF sy-subrc = 0.
+  WRITE: / 'マテリアル番号:', lv_matnr,
+         / 'マテリアルタイプ:', lv_mtart,
+         / 'マテリアル名:', lv_maktx.
+ELSE.
+  WRITE: / '該当するデータは見つかりませんでした'.
+ENDIF.
+
