@@ -1,0 +1,40 @@
+REPORT zsmartform_test. " SE38で作成するプログラム名
+
+DATA: lv_fm_name  TYPE rs38l_fnam,       " SmartFormsの関数モジュール名
+      lt_sales    TYPE TABLE OF zt_sales, " Zテーブルから取得する販売データ
+      lv_job_output_info TYPE ssfcrescl.  " 出力制御情報
+
+" データ取得（例：販売データ）
+SELECT * FROM zt_sales INTO TABLE lt_sales WHERE sales_org = '1000'.
+
+" SmartFormsの関数モジュール名を取得
+CALL FUNCTION 'SSF_FUNCTION_MODULE_NAME'
+  EXPORTING
+    formname           = 'Z_MY_SMARTFORM'  " SmartForms名（トランザクションSMARTFORMSで作成）
+  IMPORTING
+    fm_name            = lv_fm_name
+  EXCEPTIONS
+    no_form            = 1
+    no_function_module = 2
+    OTHERS             = 3.
+
+IF sy-subrc <> 0.
+  MESSAGE 'SmartFormsの関数モジュールが取得できません' TYPE 'E'.
+ENDIF.
+
+" SmartFormsの関数モジュールを呼び出す
+CALL FUNCTION lv_fm_name
+  EXPORTING
+    user_settings = 'X'
+  TABLES
+    it_sales      = lt_sales   " SmartFormsのフォームインターフェースに定義したテーブル
+  EXCEPTIONS
+    formatting_error   = 1
+    internal_error     = 2
+    send_error         = 3
+    user_canceled      = 4
+    OTHERS             = 5.
+
+IF sy-subrc <> 0.
+  MESSAGE 'SmartFormsの実行エラー' TYPE 'E'.
+ENDIF.

@@ -238,4 +238,19 @@ LOOP AT lt_ekpo INTO ls_ekpo.
           '品目番号:', ls_ekpo-matnr,
           '数量:', ls_ekpo-menge.
 ENDLOOP.
+**************************************************************************************
+
+DATA: lv_belnr TYPE rbkp-belnr,  " 請求書番号
+      lv_bukrs TYPE rbkp-bukrs.  " 会社コード
+
+SELECT belnr, bukrs FROM rbkp WHERE bukrs = '1000'.  " 会社コード1000のデータ取得
+  lv_belnr = rbkp-belnr.
+  lv_bukrs = rbkp-bukrs.
+
+  WRITE: / '請求書番号:', lv_belnr, '会社コード:', lv_bukrs.
+ENDSELECT.
+
+
+
+
 
