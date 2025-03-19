@@ -261,3 +261,13 @@ SELECT bkpf~bukrs, bkpf~belnr, bkpf~gjahr, vbfa~vbelv AS sales_order
     AND vbfa~vbtyp_n = 'M'   " 受注伝票
     AND bkpf~belnr = '会計伝票番号'.
 
+************************************************
+SELECT vbfa.vbelv AS sales_order
+FROM bkpf
+JOIN vbfa ON bkpf.awkey = vbfa.vbeln
+WHERE bkpf.awtyp = 'VBRK'  -- 請求伝票関連
+  AND vbfa.vbtyp_n = 'M'   -- 受注伝票
+  AND bkpf.belnr = '会計伝票番号'
+  AND bkpf.gjahr = '年度';  -- 例: '2024'
+  
+  
