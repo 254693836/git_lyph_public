@@ -269,5 +269,12 @@ WHERE bkpf.awtyp = 'VBRK'  -- 請求伝票関連
   AND vbfa.vbtyp_n = 'M'   -- 受注伝票
   AND bkpf.belnr = '会計伝票番号'
   AND bkpf.gjahr = '年度';  -- 例: '2024'
-  
+
+
+SD（販売） → VA01（受注）
+MM（物流） → VL01N（出荷）
+SD-FI（請求） → VF01（請求書）
+FI（会計伝票作成） → FB03（会計伝票）
+FI-AR（入金処理） → F-28（入金）
+
   
