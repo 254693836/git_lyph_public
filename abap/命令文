@@ -277,4 +277,56 @@ SD-FI（請求） → VF01（請求書）
 FI（会計伝票作成） → FB03（会計伝票）
 FI-AR（入金処理） → F-28（入金）
 
+***********************************************************
+REPORT zloop_demo.
+
+DATA: lt_data TYPE TABLE OF ztable.
+
+START-OF-SELECTION.
+  PERFORM loop_into.
+  PERFORM loop_assigning.
+  PERFORM loop_for.
+  PERFORM loop_reduce.
+  PERFORM loop_filter.
+
+" 従来のLOOP AT ... INTO
+FORM loop_into.
+  DATA: wa_data TYPE ztable.
+  LOOP AT lt_data INTO wa_data.
+    WRITE: / wa_data-field1, wa_data-field2.
+  ENDLOOP.
+ENDFORM.
+
+" FIELD-SYMBOLSを使ったLOOP AT ... ASSIGNING
+FORM loop_assigning.
+  FIELD-SYMBOLS: <fs_data> TYPE ztable.
+  LOOP AT lt_data ASSIGNING <fs_data>.
+    WRITE: / <fs_data>-field1, <fs_data>-field2.
+  ENDLOOP.
+ENDFORM.
+
+" FORループを使った新しいループ方法 (ABAP 7.40以降)
+FORM loop_for.
+  DATA(lt_result) = VALUE ztable( FOR wa IN lt_data ( wa ) ).
+  LOOP AT lt_result INTO DATA(ls_result).
+    WRITE: / ls_result-field1, ls_result-field2.
+  ENDLOOP.
+ENDFORM.
+
+" REDUCEを使った集計 (ABAP 7.40以降)
+FORM loop_reduce.
+  DATA(sum) = REDUCE i TYPE INIT result = 0
+              FOR wa IN lt_data
+              NEXT result = result + wa-amount.
+  WRITE: / 'Total Amount:', sum.
+ENDFORM.
+
+" FILTERを使ったフィルタリング (ABAP 7.40以降)
+FORM loop_filter.
+  DATA(lt_filtered) = FILTER #( lt_data WHERE field1 = 'ABC' ).
+  LOOP AT lt_filtered INTO DATA(ls_filtered).
+    WRITE: / ls_filtered-field1, ls_filtered-field2.
+  ENDLOOP.
+ENDFORM.
+
   
