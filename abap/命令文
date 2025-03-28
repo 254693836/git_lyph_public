@@ -328,5 +328,21 @@ FORM loop_filter.
     WRITE: / ls_filtered-field1, ls_filtered-field2.
   ENDLOOP.
 ENDFORM.
+****************より正確な方法（ADD_MONTHSを使用**********************
+DATA: lv_date   TYPE dats,
+      lv_result TYPE char6.
+
+* 現在の日付を取得
+lv_date = sy-datum.
+
+* 15か月前の年月を取得
+lv_date = cl_abap_datfm=>add_months( lv_date, -15 ).
+
+* YYYYMM形式に変換
+lv_result = lv_date+0(6).
+
+WRITE: lv_result.
+
+
 
   
