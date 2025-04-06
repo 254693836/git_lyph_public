@@ -1,1 +1,206 @@
+REPORT z_addon_table_update_with_lock.
 
+* カスタムテーブル定義（例）
+TABLES: zmy_addon_table.
+
+* データ型定義
+TYPES: BEGIN OF ty_addon_data,
+         mandt TYPE mandt,
+         key_field TYPE char10,   " 主キーフィールド
+         field1    TYPE char50,   " カスタムフィールド1
+         field2    TYPE char100,  " カスタムフィールド2
+         amount    TYPE wrbtr,    " 金額フィールド
+         last_changed TYPE timestamp, " 最終変更日時
+         changed_by   TYPE uname,     " 変更者
+       END OF ty_addon_data.
+
+DATA: lt_addon_data TYPE TABLE OF ty_addon_data,
+      ls_addon_data TYPE ty_addon_data.
+
+* ロックオブジェクト定義（事前にSE11で作成が必要）
+* 例: EZ_ADDON_TABLE というロックオブジェクトを作成している前提
+
+* 1. データ登録（INSERT）with ロックチェック
+FORM insert_addon_data.
+  DATA: lv_timestamp TYPE timestamp,
+        lv_lock_arg TYPE char10.
+
+  " タイムスタンプ取得
+  GET TIME STAMP FIELD lv_timestamp.
+
+  " 登録データ準備
+  ls_addon_data-mandt = sy-mandt.
+  ls_addon_data-key_field = 'KEY000001'.
+  ls_addon_data-field1 = 'サンプルデータ1'.
+  ls_addon_data-field2 = 'ロック処理追加サンプル'.
+  ls_addon_data-amount = '1000.50'.
+  ls_addon_data-last_changed = lv_timestamp.
+  ls_addon_data-changed_by = sy-uname.
+
+  " ロック試行（登録前に重複チェック）
+  lv_lock_arg = ls_addon_data-key_field.
+  CALL FUNCTION 'ENQUEUE_EZ_ADDON_TABLE'
+    EXPORTING
+      mode_zmy_addon_table = 'E'
+      mandt                = sy-mandt
+      key_field            = lv_lock_arg
+    EXCEPTIONS
+      foreign_lock         = 1
+      system_failure       = 2
+      OTHERS               = 3.
+
+  IF sy-subrc <> 0.
+    WRITE: / 'ロック取得失敗: 他のユーザーが処理中か、既にデータが存在します'.
+    RETURN.
+  ENDIF.
+
+  " データベース登録
+  INSERT zmy_addon_table FROM ls_addon_data.
+  
+  IF sy-subrc = 0.
+    COMMIT WORK.
+    " ロック解放
+    CALL FUNCTION 'DEQUEUE_EZ_ADDON_TABLE'
+      EXPORTING
+        mode_zmy_addon_table = 'E'
+        mandt                = sy-mandt
+        key_field            = lv_lock_arg.
+    WRITE: / 'データが正常に登録されました (KEY:', ls_addon_data-key_field, ')'.
+  ELSE.
+    ROLLBACK WORK.
+    " ロック解放
+    CALL FUNCTION 'DEQUEUE_EZ_ADDON_TABLE'
+      EXPORTING
+        mode_zmy_addon_table = 'E'
+        mandt                = sy-mandt
+        key_field            = lv_lock_arg.
+    WRITE: / 'データ登録中にエラーが発生しました'.
+  ENDIF.
+ENDFORM.
+
+* 2. データ更新（UPDATE）with ロック
+FORM update_addon_data.
+  DATA: lv_timestamp TYPE timestamp,
+        lv_lock_arg TYPE char10.
+
+  " タイムスタンプ取得
+  GET TIME STAMP FIELD lv_timestamp.
+
+  " 更新対象データ取得
+  SELECT SINGLE * FROM zmy_addon_table
+    INTO CORRESPONDING FIELDS OF ls_addon_data
+    WHERE key_field = 'KEY000001'.
+    
+  IF sy-subrc = 0.
+    " ロック取得
+    lv_lock_arg = ls_addon_data-key_field.
+    CALL FUNCTION 'ENQUEUE_EZ_ADDON_TABLE'
+      EXPORTING
+        mode_zmy_addon_table = 'E'
+        mandt                = sy-mandt
+        key_field            = lv_lock_arg
+      EXCEPTIONS
+        foreign_lock         = 1
+        system_failure       = 2
+        OTHERS               = 3.
+
+    IF sy-subrc <> 0.
+      WRITE: / 'ロック取得失敗: 他のユーザーが処理中です'.
+      RETURN.
+    ENDIF.
+
+    " データ更新
+    ls_addon_data-field1 = 'ロック処理あり更新データ'.
+    ls_addon_data-amount = ls_addon_data-amount + '500.00'.
+    ls_addon_data-last_changed = lv_timestamp.
+    ls_addon_data-changed_by = sy-uname.
+
+    " データベース更新
+    UPDATE zmy_addon_table FROM ls_addon_data.
+    
+    IF sy-subrc = 0.
+      COMMIT WORK.
+      " ロック解放
+      CALL FUNCTION 'DEQUEUE_EZ_ADDON_TABLE'
+        EXPORTING
+          mode_zmy_addon_table = 'E'
+          mandt                = sy-mandt
+          key_field            = lv_lock_arg.
+      WRITE: / 'データが正常に更新されました (KEY:', ls_addon_data-key_field, ')'.
+    ELSE.
+      ROLLBACK WORK.
+      " ロック解放
+      CALL FUNCTION 'DEQUEUE_EZ_ADDON_TABLE'
+        EXPORTING
+          mode_zmy_addon_table = 'E'
+          mandt                = sy-mandt
+          key_field            = lv_lock_arg.
+      WRITE: / 'データ更新中にエラーが発生しました'.
+    ENDIF.
+  ELSE.
+    WRITE: / '更新対象のデータが見つかりませんでした'.
+  ENDIF.
+ENDFORM.
+
+* 3. データ削除（DELETE）with ロック
+FORM delete_addon_data.
+  DATA: lv_lock_arg TYPE char10.
+
+  " 削除対象データ確認
+  SELECT SINGLE * FROM zmy_addon_table
+    INTO CORRESPONDING FIELDS OF ls_addon_data
+    WHERE key_field = 'KEY000001'.
+    
+  IF sy-subrc = 0.
+    " ロック取得
+    lv_lock_arg = ls_addon_data-key_field.
+    CALL FUNCTION 'ENQUEUE_EZ_ADDON_TABLE'
+      EXPORTING
+        mode_zmy_addon_table = 'E'
+        mandt                = sy-mandt
+        key_field            = lv_lock_arg
+      EXCEPTIONS
+        foreign_lock         = 1
+        system_failure       = 2
+        OTHERS               = 3.
+
+    IF sy-subrc <> 0.
+      WRITE: / 'ロック取得失敗: 他のユーザーが処理中です'.
+      RETURN.
+    ENDIF.
+
+    " データベースから削除
+    DELETE FROM zmy_addon_table 
+      WHERE key_field = 'KEY000001'.
+    
+    IF sy-subrc = 0.
+      COMMIT WORK.
+      " ロック解放
+      CALL FUNCTION 'DEQUEUE_EZ_ADDON_TABLE'
+        EXPORTING
+          mode_zmy_addon_table = 'E'
+          mandt                = sy-mandt
+          key_field            = lv_lock_arg.
+      WRITE: / 'データが正常に削除されました (KEY:', ls_addon_data-key_field, ')'.
+    ELSE.
+      ROLLBACK WORK.
+      " ロック解放
+      CALL FUNCTION 'DEQUEUE_EZ_ADDON_TABLE'
+        EXPORTING
+          mode_zmy_addon_table = 'E'
+          mandt                = sy-mandt
+          key_field            = lv_lock_arg.
+      WRITE: / 'データ削除中にエラーが発生しました'.
+    ENDIF.
+  ELSE.
+    WRITE: / '削除対象のデータが見つかりませんでした'.
+  ENDIF.
+ENDFORM.
+
+* メイン処理
+START-OF-SELECTION.
+  PERFORM insert_addon_data.     " ロック付き単一データ登録
+  PERFORM update_addon_data.    " ロック付きデータ更新
+  " PERFORM delete_addon_data.  " ロック付きデータ削除（必要に応じてコメント解除）
+
+  WRITE: / 'ロック処理を含むアドオンテーブル更新デモが完了しました'.
