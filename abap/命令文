@@ -343,6 +343,105 @@ lv_result = lv_date+0(6).
 
 WRITE: lv_result.
 
+＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊従来のREAD TABLE START ＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊
+REPORT z_replace_read_table.
 
+* サンプルデータ型定義
+TYPES: BEGIN OF ty_structure,
+         id    TYPE i,
+         name  TYPE string,
+         value TYPE string,
+       END OF ty_structure,
+       tt_table TYPE STANDARD TABLE OF ty_structure WITH EMPTY KEY.
+
+START-OF-SELECTION.
+  " テストデータ作成
+  DATA(it_data) = VALUE tt_table(
+    ( id = 1 name = 'Item1' value = '100' )
+    ( id = 2 name = 'Item2' value = '200' )
+    ( id = 3 name = 'Item3' value = '300' )
+    ( id = 4 name = 'Item4' value = '400' )
+    ( id = 2 name = 'Item2B' value = '250' )
+  ).
+
+  "--------------------------------------------------
+  " 1. キーアクセスの代替方法
+  "--------------------------------------------------
+  " 従来のREAD TABLE
+  DATA wa_old TYPE ty_structure.
+  READ TABLE it_data INTO wa_old WITH KEY id = 2.
+  IF sy-subrc = 0.
+    WRITE: / '従来方法:', wa_old-id, wa_old-name, wa_old-value.
+  ENDIF.
+
+  " 新しい方法1 - VALUE構文
+  DATA(wa_new1) = VALUE #( it_data[ id = 2 ] OPTIONAL ).
+  IF wa_new1 IS NOT INITIAL.
+    WRITE: / 'VALUE構文:', wa_new1-id, wa_new1-name, wa_new1-value.
+  ENDIF.
+
+  " 新しい方法2 - FILTER構文（複数ヒットの場合）
+  DATA(lt_filtered) = FILTER #( it_data WHERE id = 2 ).
+  IF lt_filtered IS NOT INITIAL.
+    LOOP AT lt_filtered INTO DATA(wa_filtered).
+      WRITE: / 'FILTER構文:', wa_filtered-id, wa_filtered-name, wa_filtered-value.
+    ENDLOOP.
+  ENDIF.
+
+  "--------------------------------------------------
+  " 2. インデックスアクセスの代替方法
+  "--------------------------------------------------
+  " 従来のREAD TABLE INDEX
+  READ TABLE it_data INDEX 3 INTO wa_old.
+  IF sy-subrc = 0.
+    WRITE: / '従来のインデックスアクセス:', wa_old-id, wa_old-name, wa_old-value.
+  ENDIF.
+
+  " 新しい方法 - 直接インデックスアクセス
+  TRY.
+      DATA(wa_index) = it_data[ 3 ].
+      WRITE: / '新しいインデックスアクセス:', wa_index-id, wa_index-name, wa_index-value.
+    CATCH cx_sy_itab_line_not_found.
+      WRITE: / 'インデックス3の行が見つかりません'.
+  ENDTRY.
+
+  "--------------------------------------------------
+  " 3. 存在チェックの代替方法
+  "--------------------------------------------------
+  " 従来の方法
+  READ TABLE it_data TRANSPORTING NO FIELDS WITH KEY id = 3.
+  IF sy-subrc = 0.
+    WRITE: / '従来の存在チェック: ID 3が存在します'.
+  ENDIF.
+
+  " 新しい方法 - line_exists
+  IF line_exists( it_data[ id = 3 ] ).
+    WRITE: / 'line_exists: ID 3が存在します'.
+  ENDIF.
+
+  "--------------------------------------------------
+  " 4. 複合キーでの検索
+  "--------------------------------------------------
+  " 新しい方法
+  DATA(wa_multi_key) = VALUE #( it_data[ id = 2 name = 'Item2B' ] OPTIONAL ).
+  IF wa_multi_key IS NOT INITIAL.
+    WRITE: / '複合キー検索:', wa_multi_key-id, wa_multi_key-name, wa_multi_key-value.
+  ENDIF.
+
+  "--------------------------------------------------
+  " 5. パフォーマンス比較
+  "--------------------------------------------------
+  " ハッシュテーブルでの検索
+  DATA(ht_data) = VALUE HASHED TABLE OF ty_structure(
+    FOR ls IN it_data ( ls )
+  ) WITH UNIQUE KEY id.
+
+  " ハッシュテーブル検索（最速）
+  DATA(wa_hash) = VALUE #( ht_data[ id = 4 ] OPTIONAL ).
+  IF wa_hash IS NOT INITIAL.
+    WRITE: / 'ハッシュテーブル検索:', wa_hash-id, wa_hash-name, wa_hash-value.
+  ENDIF.
+
+＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊従来のREAD TABLE END ＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊
 
   
