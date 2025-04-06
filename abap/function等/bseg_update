@@ -1,1 +1,173 @@
 
+REPORT z_bseg_update_methods.
+
+* BSEG更新方法デモンストレーション用プログラム
+* 注意: 本番環境で実行する前に必ずテスト環境で検証してください
+
+TABLES: bseg.
+
+DATA: ls_header    TYPE bapiache09,
+      lt_gl_items  TYPE TABLE OF bapiacgl09,
+      lt_ar_items  TYPE TABLE OF bapiacar09,
+      lt_ap_items  TYPE TABLE OF bapiacap09,
+      lt_curr      TYPE TABLE OF bapiaccr09,
+      lt_return    TYPE TABLE OF bapiret2,
+      lt_bdcdata   TYPE TABLE OF bdcdata,
+      lt_bseg_old  TYPE TABLE OF bseg,
+      lt_bseg_new  TYPE TABLE OF bseg.
+
+* 1. BAPIを使用した伝票登録（最推奨方法）
+FORM update_via_bapi.
+  WRITE: / '1. BAPIを使用した伝票登録'.
+
+  " ヘッダーデータ設定
+  ls_header-obj_type  = 'BKPFF'.
+  ls_header-username  = sy-uname.
+  ls_header-header_txt = 'BAPI経由伝票'.
+  ls_header-comp_code = '1000'.  " 会社コード
+  ls_header-doc_date  = sy-datum.
+  ls_header-pstng_date = sy-datum.
+  ls_header-doc_type  = 'SA'.   " 伝票タイプ
+
+  " GL項目追加
+  APPEND VALUE #( itemno_acc = '1'
+                  gl_account = '0000110000'  " G/L勘定
+                  comp_code  = '1000'
+                  pstng_date = sy-datum
+                  doc_type   = 'SA'
+                  currency   = 'JPY'
+                  amt_doccur = '1000.00' ) TO lt_gl_items.
+
+  " BAPI呼び出し
+  CALL FUNCTION 'BAPI_ACC_DOCUMENT_POST'
+    EXPORTING
+      documentheader = ls_header
+    TABLES
+      accountgl      = lt_gl_items
+      currencyamount = lt_curr
+      return         = lt_return.
+
+  " 結果確認
+  READ TABLE lt_return WITH KEY type = 'E' TRANSPORTING NO FIELDS.
+  IF sy-subrc = 0.
+    CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
+    LOOP AT lt_return WHERE type CA 'EA'.
+      WRITE: / 'エラー:', return-message.
+    ENDLOOP.
+  ELSE.
+    CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
+      EXPORTING
+        wait = 'X'.
+    WRITE: / '伝票が正常に登録されました'.
+  ENDIF.
+ENDFORM.
+
+* 2. 標準トランザクションをBDCで呼び出す方法
+FORM update_via_bdc.
+  WRITE: / '2. BDCを使用したFB01呼び出し'.
+
+  " BDCDATAテーブル設定
+  PERFORM fill_bdc_data.
+
+  " トランザクション呼び出し
+  CALL TRANSACTION 'FB01' USING lt_bdcdata
+                           MODE 'N'
+                           UPDATE 'S'
+                           MESSAGES INTO lt_return.
+
+  " 結果確認
+  IF sy-subrc = 0.
+    WRITE: / 'BDC経由で伝票が登録されました'.
+  ELSE.
+    WRITE: / 'BDC実行中にエラーが発生しました'.
+  ENDIF.
+ENDFORM.
+
+* BDCデータ作成サブルーチン
+FORM fill_bdc_data.
+  DATA: lw_bdcdata TYPE bdcdata.
+
+  " 画面シーケンス設定
+  lw_bdcdata-program  = 'SAPMF05A'.
+  lw_bdcdata-dynpro   = '100'.
+  lw_bdcdata-dynbegin = 'X'.
+  APPEND lw_bdcdata TO lt_bdcdata.
+
+  CLEAR lw_bdcdata.
+  lw_bdcdata-fnam = 'BKPF-BLDAT'.
+  lw_bdcdata-fval = sy-datum.
+  APPEND lw_bdcdata TO lt_bdcdata.
+
+  " 追加のBDCデータ設定...
+ENDFORM.
+
+* 3. 関数モジュールを使用した更新（条件付き推奨）
+FORM update_via_function.
+  WRITE: / '3. FI_DOCUMENT_CHANGEを使用した更新'.
+
+  " 変更前データ取得
+  SELECT * FROM bseg INTO TABLE lt_bseg_old
+    WHERE bukrs = '1000'
+      AND belnr = '4900000001'
+      AND gjahr = '2023'
+    UP TO 10 ROWS.
+
+  IF sy-subrc = 0.
+    " データ変更（例: 金額更新）
+    lt_bseg_new = lt_bseg_old.
+    LOOP AT lt_bseg_new ASSIGNING FIELD-SYMBOL(<fs_bseg>).
+      <fs_bseg>-wrbtr = <fs_bseg>-wrbtr * '1.10'. " 10%増加
+    ENDLOOP.
+
+    " 関数モジュール呼び出し
+    CALL FUNCTION 'FI_DOCUMENT_CHANGE'
+      EXPORTING
+        i_bukrs = '1000'
+        i_belnr = '4900000001'
+        i_gjahr = '2023'
+      TABLES
+        t_bseg  = lt_bseg_new
+        t_return = lt_return.
+
+    " 結果確認
+    READ TABLE lt_return WITH KEY type = 'E' TRANSPORTING NO FIELDS.
+    IF sy-subrc = 0.
+      WRITE: / '伝票更新エラーが発生しました'.
+    ELSE.
+      WRITE: / '伝票が正常に更新されました'.
+    ENDIF.
+  ELSE.
+    WRITE: / '更新対象の伝票が見つかりませんでした'.
+  ENDIF.
+ENDFORM.
+
+* 4. 直接UPDATE（非推奨・デモ用）
+FORM direct_update_example.
+  WRITE: / '4. 直接UPDATE（非推奨）'.
+
+  " 注意: この方法は通常使用しない
+  " 事前に適切な権限とバックアップが必要
+  UPDATE bseg SET wrbtr = wrbtr * '1.05'  " 5%増加
+    WHERE bukrs = '1000'
+      AND belnr = '4900000001'
+      AND gjahr = '2023'
+      AND buzei = '001'.
+
+  IF sy-subrc = 0.
+    WRITE: / '直接更新が実行されました（影響行数:', sy-dbcnt, ')'.
+    COMMIT WORK.
+  ELSE.
+    WRITE: / '更新対象レコードが見つかりませんでした'.
+    ROLLBACK WORK.
+  ENDIF.
+ENDFORM.
+
+* メイン処理
+START-OF-SELECTION.
+  PERFORM update_via_bapi.     " 最推奨方法
+  PERFORM update_via_bdc.     " 標準トランザクション使用
+  PERFORM update_via_function. " 関数モジュール使用
+  " PERFORM direct_update_example. " 非推奨（コメント解除注意）
+
+  WRITE: / 'すべての更新方法のデモが完了しました'.
+  WRITE: / '注意: 本番環境で実行する前に必ずテスト環境で検証してください'.
