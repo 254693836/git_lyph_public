@@ -1,1 +1,69 @@
 
+REPORT z_alv_output_example.
+
+* データ型とテーブルの定義
+TYPES: BEGIN OF ty_flight,
+         carrid    TYPE s_carr_id,
+         connid    TYPE s_conn_id,
+         fldate    TYPE s_date,
+         price     TYPE s_price,
+         currency  TYPE s_currcode,
+         planetype TYPE s_planetye,
+       END OF ty_flight.
+
+DATA: gt_flights TYPE TABLE OF ty_flight,
+      gt_output TYPE TABLE OF ty_flight.
+
+* メイン処理
+START-OF-SELECTION.
+  PERFORM get_data.
+  PERFORM display_alv.
+
+* データ取得
+FORM get_data.
+  SELECT carrid, connid, fldate, price, currency, planetype
+    FROM sflight
+    INTO TABLE @gt_flights
+    UP TO 100 ROWS.
+  
+  gt_output = gt_flights.
+ENDFORM.
+
+* ALV表示
+FORM display_alv.
+  TRY.
+      " SALVオブジェクトの作成
+      DATA(salv_table) = cl_salv_table=>factory( ).
+      
+      " データの設定
+      salv_table->set_data( CHANGING t_table = gt_output ).
+      
+      " 表示設定
+      DATA(display_settings) = salv_table->get_display_settings( ).
+      display_settings->set_striped_pattern( abap_true ). " 縞模様表示
+      display_settings->set_list_header( 'フライトデータ一覧' ). " タイトル
+      
+      " 列の最適化
+      salv_table->get_columns( )->set_optimize( abap_true ).
+      
+      " 個々の列の設定
+      DATA(columns) = salv_table->get_columns( ).
+      
+      " 通貨列の設定
+      TRY.
+          DATA(price_column) = CAST cl_salv_column_table( columns->get_column( 'PRICE' ) ).
+          price_column->set_currency_column( 'CURRENCY' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+      
+      " ツールバーの表示
+      DATA(functions) = salv_table->get_functions( ).
+      functions->set_all( abap_true ).
+      
+      " ALV表示
+      salv_table->display( ).
+      
+    CATCH cx_salv_msg INTO DATA(salv_error).
+      MESSAGE salv_error TYPE 'E'.
+  ENDTRY.
+ENDFORM.
