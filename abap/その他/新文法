@@ -1,1 +1,123 @@
+REPORT z_abap_new_syntax_demo.
 
+* 1. インライン宣言と文字列操作
+FORM inline_declaration.
+  " 基本インライン宣言
+  DATA(lv_string) = 'Hello, New ABAP!'.
+  DATA(lv_int) = 123.
+  
+  " テンプレート文字列
+  DATA(lv_message) = |文字列: { lv_string }, 数値: { lv_int }|.
+  
+  " 正規表現
+  IF matches( val = lv_string regex = 'New ABAP' ).
+    WRITE: / '正規表現マッチ:', lv_message.
+  ENDIF.
+ENDFORM.
+
+* 2. テーブル操作新構文
+FORM table_operations.
+  TYPES: BEGIN OF ty_data,
+           id    TYPE i,
+           name  TYPE string,
+           value TYPE f,
+         END OF ty_data,
+         tt_data TYPE TABLE OF ty_data WITH EMPTY KEY.
+  
+  " VALUE演算子でテーブル生成
+  DATA(lt_data) = VALUE tt_data(
+    ( id = 1 name = 'Item A' value = 10.5 )
+    ( id = 2 name = 'Item B' value = 20.3 )
+    ( id = 3 name = 'Item C' value = 15.7 )
+  ).
+  
+  " FILTER演算子
+  DATA(lt_filtered) = FILTER #( lt_data WHERE value > 15 ).
+  
+  " REDUCE演算子で集計
+  DATA(lv_total) = REDUCE #(
+    INIT sum = 0
+    FOR ls IN lt_data
+    NEXT sum = sum + ls-value
+  ).
+  
+  " 新しいLOOP構文
+  LOOP AT lt_data ASSIGNING FIELD-SYMBOL(<fs>) FROM 1 TO 2.
+    WRITE: / <fs>-id, <fs>-name, <fs>-value.
+  ENDLOOP.
+ENDFORM.
+
+* 3. 条件分岐とSWITCH/COND
+FORM conditional_expressions.
+  DATA(lv_score) = 85.
+  
+  " COND演算子
+  DATA(lv_grade) = COND #(
+    WHEN lv_score >= 90 THEN 'A'
+    WHEN lv_score >= 80 THEN 'B'
+    WHEN lv_score >= 70 THEN 'C'
+    ELSE 'D'
+  ).
+  
+  " SWITCH演算子
+  DATA(lv_result) = SWITCH #(
+    lv_grade
+    WHEN 'A' THEN 'Excellent'
+    WHEN 'B' THEN 'Good'
+    ELSE 'Need Improvement'
+  ).
+  
+  WRITE: / 'Score:', lv_score, 'Grade:', lv_grade, 'Result:', lv_result.
+ENDFORM.
+
+* 4. 例外処理の新構文
+FORM exception_handling.
+  TRY.
+      DATA(lv_division) = 100 / 0.
+    CATCH cx_sy_zerodivide INTO DATA(lx_math).
+      WRITE: / '除算エラー発生:', lx_math->get_text( ).
+    CATCH cx_root INTO DATA(lx_other).
+      WRITE: / 'その他エラー:', lx_other->get_text( ).
+  ENDTRY.
+ENDFORM.
+
+* 5. SQL式の拡張
+FORM sql_enhancements.
+  SELECT FROM t001
+    FIELDS bukrs, butxt,
+           CASE WHEN land1 = 'JP' THEN '国内' ELSE '海外' END AS region
+    WHERE bukrs = '1000'
+    INTO TABLE @DATA(lt_companies).
+  
+  IF sy-subrc = 0.
+    LOOP AT lt_companies INTO DATA(ls_comp).
+      WRITE: / ls_comp-bukrs, ls_comp-butxt, ls_comp-region.
+    ENDLOOP.
+  ENDIF.
+ENDFORM.
+
+* 6. CDS View関連機能
+FORM cds_features.
+  " ※実際のCDS Viewは別途定義が必要です
+  " define view entity Z_MY_CDS_VIEW...
+  
+  WRITE: / 'CDS Viewサンプルは別ファイルで定義が必要です'.
+ENDFORM.
+
+* 7. RESTful ABAP Programming
+FORM rap_demo.
+  " ※実際のRAPモデルは別途定義が必要です
+  WRITE: / 'RAPモデルサンプルは別ファイルで定義が必要です'.
+ENDFORM.
+
+* メイン処理
+START-OF-SELECTION.
+  PERFORM inline_declaration.
+  PERFORM table_operations.
+  PERFORM conditional_expressions.
+  PERFORM exception_handling.
+  PERFORM sql_enhancements.
+  PERFORM cds_features.
+  PERFORM rap_demo.
+  
+  WRITE: / 'ABAP最新文法デモが完了しました'.
