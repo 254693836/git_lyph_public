@@ -1,0 +1,24 @@
+FORM display_alv.
+  TRY.
+      cl_salv_table=>factory( 
+        IMPORTING
+          r_salv_table = DATA(alv)
+        CHANGING
+          t_table      = gt_output ).
+      
+      alv->get_functions( )->set_all( ).
+      alv->get_display_settings( )->set_list_header( 'フライトデータ一覧' ).
+      alv->get_columns( )->set_optimize( ).
+      
+      " 列の個別設定
+      LOOP AT alv->get_columns( )->get( ) INTO DATA(column).
+        column->set_visible( abap_true ).
+        column->set_long_text( column->get_medium_text( ) ).
+      ENDLOOP.
+      
+      alv->display( ).
+      
+    CATCH cx_salv_error INTO DATA(error).
+      MESSAGE error->get_text( ) TYPE 'E'.
+  ENDTRY.
+ENDFORM.
