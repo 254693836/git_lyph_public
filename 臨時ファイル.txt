@@ -21,3 +21,20 @@ DATA(materials) = VALUE tt_materials(
 
 " 条件: mtartが'FERT'の材料のみ抽出
 DATA(fert_materials) = FILTER #( materials WHERE mtart = 'FERT' ).
+
+**************************************************************************************
+TYPES: BEGIN OF ty_material,
+         matnr TYPE matnr,
+         mtart TYPE mtart,
+         matkl TYPE matkl,
+       END OF ty_material,
+       tt_materials TYPE TABLE OF ty_material WITH EMPTY KEY.
+
+DATA(materials) = VALUE tt_materials(
+  ( matnr = 'M-001' mtart = 'FERT' matkl = '01' )
+  ( matnr = 'M-002' mtart = 'HALB' matkl = '02' )
+  ( matnr = 'M-003' mtart = 'FERT' matkl = '01' )
+).
+
+" 条件: mtartが'FERT'の材料のみ抽出
+DATA(fert_materials) = FILTER #( materials WHERE mtart = 'FERT' ).
