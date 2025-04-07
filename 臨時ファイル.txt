@@ -23,18 +23,34 @@ DATA(materials) = VALUE tt_materials(
 DATA(fert_materials) = FILTER #( materials WHERE mtart = 'FERT' ).
 
 **************************************************************************************
+REPORT ztest_filter_example.
+
 TYPES: BEGIN OF ty_material,
-         matnr TYPE matnr,
-         mtart TYPE mtart,
-         matkl TYPE matkl,
+         matnr TYPE matnr,   " 材料番号
+         mtart TYPE mtart,   " 材料タイプ
+         matkl TYPE matkl,   " 材料グループ
        END OF ty_material,
-       tt_materials TYPE TABLE OF ty_material WITH EMPTY KEY.
+       tt_materials TYPE TABLE OF ty_material WITH EMPTY KEY.  " キー定義が重要
 
-DATA(materials) = VALUE tt_materials(
-  ( matnr = 'M-001' mtart = 'FERT' matkl = '01' )
-  ( matnr = 'M-002' mtart = 'HALB' matkl = '02' )
-  ( matnr = 'M-003' mtart = 'FERT' matkl = '01' )
-).
+START-OF-SELECTION.
+  " サンプルデータ作成
+  DATA(materials) = VALUE tt_materials(
+    ( matnr = 'M-001' mtart = 'FERT' matkl = '01' )  " 注意: 'FERT'のタイポ？
+    ( matnr = 'M-002' mtart = 'HALB' matkl = '02' )
+    ( matnr = 'M-003' mtart = 'FERT' matkl = '01' )
+  ).
 
-" 条件: mtartが'FERT'の材料のみ抽出
-DATA(fert_materials) = FILTER #( materials WHERE mtart = 'FERT' ).
+  " 修正1: 完全な型指定でFILTERを使用
+  DATA(fert_materials) = FILTER #(
+    materials
+    WHERE mtart = 'FERT'  " 大文字小文字に注意
+  ).
+
+  " 修正2: 代替方法（FILTERが使えない場合）
+  DATA(fert_materials_alt) = VALUE tt_materials(
+    FOR material IN materials WHERE ( mtart = 'FERT' ) ( material )
+  ).
+
+  " 結果表示
+  cl_demo_output=>display( fert_materials ).
+  cl_demo_output=>display( fert_materials_alt ).
