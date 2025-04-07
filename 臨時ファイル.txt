@@ -1,7 +1,6 @@
-xxxxxxxxxx
-xxxxxxxxxxxxx
-xxxxxxxxxxxxxx
+DATA(lt_data) TYPE TABLE OF string.
 
+lt_data = VALUE #( ( `Apple` ) ( `Banana` ) ( `Orange` ) ).
 
+DATA(lt_filtered_data) = VALUE #( FOR wa_data IN lt_data WHERE ( wa_data = 'Banana' ) ( wa_data ) ).
 
-from eclipse
