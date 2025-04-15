@@ -1,1 +1,13 @@
 臨時ファイル.txt
+REPORT zexport_abap_code.
+
+DATA: lt_source TYPE TABLE OF string,
+      lv_progname TYPE progname VALUE 'YOUR_PROGRAM_NAME'. "替换为你的程序名
+
+READ REPORT lv_progname INTO lt_source.
+
+CALL FUNCTION 'GUI_DOWNLOAD'
+  EXPORTING
+    filename = 'C:\temp\program.txt' "修改为你的本地路径
+  TABLES
+    data_tab = lt_source.
