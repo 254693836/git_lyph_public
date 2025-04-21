@@ -1,1 +1,148 @@
+REPORT zy001.
 
+TYPES: BEGIN OF ty_data,
+         col1 TYPE char20,
+         col2 TYPE i,
+         col3 TYPE i, " 自动计算的字段
+       END OF ty_data.
+
+DATA: it_data TYPE TABLE OF ty_data,
+      wa_data LIKE LINE OF it_data.
+
+DATA: g_grid TYPE REF TO cl_gui_alv_grid .
+DATA: stbl   TYPE lvc_s_stbl.
+DATA: le_row     TYPE i,
+      le_value   TYPE c,
+      le_col     TYPE i,
+      les_row_id TYPE lvc_s_row,
+      les_col_id TYPE lvc_s_col,
+      les_row_no TYPE lvc_s_roid.
+
+DATA: ls_layout   TYPE lvc_s_layo,
+      lt_fieldcat TYPE lvc_t_fcat,
+      gs_glay     TYPE  lvc_s_glay,
+      ls_fieldcat LIKE LINE OF lt_fieldcat,
+      lt_events   TYPE slis_t_event,
+      ls_event    LIKE LINE OF lt_events.
+
+
+* 填充内表数据
+wa_data-col1 = '行1'.
+wa_data-col2 = 10.
+wa_data-col3 = wa_data-col2 * 2. " 初始计算
+APPEND wa_data TO it_data.
+
+wa_data-col1 = '行2'.
+wa_data-col2 = 20.
+wa_data-col3 = wa_data-col2 * 2. " 初始计算
+APPEND wa_data TO it_data.
+
+* 设置布局
+ls_layout-zebra = 'X'.
+ls_layout-cwidth_opt = 'X'.
+gs_glay-edt_cll_cb = 'X'.
+
+* 定义字段目录
+CLEAR ls_fieldcat.
+ls_fieldcat-fieldname = 'COL1'.
+ls_fieldcat-scrtext_l = '列1'.
+APPEND ls_fieldcat TO lt_fieldcat.
+
+CLEAR ls_fieldcat.
+ls_fieldcat-fieldname = 'COL2'.
+ls_fieldcat-scrtext_l = '列2'.
+ls_fieldcat-edit = 'X'.
+APPEND ls_fieldcat TO lt_fieldcat.
+
+CLEAR ls_fieldcat.
+ls_fieldcat-fieldname = 'COL3'.
+ls_fieldcat-scrtext_l = '自动计算列'.
+APPEND ls_fieldcat TO lt_fieldcat.
+
+* 定义事件
+CLEAR ls_event.
+ls_event-name = 'CALLER_EXIT'.
+ls_event-form = 'FRM_REGISTER_EVENTS'.
+APPEND ls_event TO lt_events.
+
+* 显示ALV
+CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY_LVC'
+  EXPORTING
+    i_callback_program = sy-repid
+    is_layout_lvc      = ls_layout
+    it_fieldcat_lvc    = lt_fieldcat
+    it_events          = lt_events
+  TABLES
+    t_outtab           = it_data
+  EXCEPTIONS
+    program_error      = 1
+    OTHERS             = 2.
+
+IF sy-subrc <> 0.
+  MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+  WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+ENDIF.
+
+CLASS lcl_event_handler DEFINITION."类定义
+  PUBLIC SECTION.
+    METHODS:
+      handler_data_changed FOR EVENT data_changed_finished OF cl_gui_alv_grid.
+ENDCLASS.
+
+CLASS lcl_event_handler IMPLEMENTATION."类实现
+  METHOD handler_data_changed.
+
+* 获取当前单元格的信息
+    CALL METHOD g_grid->get_current_cell
+      IMPORTING
+        e_row     = le_row
+        e_value   = le_value
+        e_col     = le_col
+        es_row_id = les_row_id
+        es_col_id = les_col_id
+        es_row_no = les_row_no.
+*读取当前行数据
+    READ TABLE it_data INDEX les_row_id-index INTO DATA(ls_data) .
+    IF sy-subrc = 0.
+      CASE les_col_id-fieldname.
+        WHEN 'COL2'.
+          ls_data-col3 = ls_data-col2 * 2. " 根据修改的COL2字段自动计算COL3
+          MODIFY it_data FROM ls_data INDEX les_row_id-index.
+
+      ENDCASE.
+      stbl-row = 'X'." 基于行的稳定刷新
+      stbl-col = 'X'." 基于列稳定刷新
+
+      CALL METHOD g_grid->refresh_table_display
+        EXPORTING
+          is_stable = stbl.
+    ENDIF.
+  ENDMETHOD.
+ENDCLASS. "lcl_event_handler IMPLEMENTATION
+
+
+*注册回车事件
+FORM frm_register_events USING e_grid TYPE slis_data_caller_exit.
+  DATA: gt_event_handler TYPE REF TO lcl_event_handler.
+  CREATE OBJECT gt_event_handler.
+
+  IF g_grid IS INITIAL.
+    CALL FUNCTION 'GET_GLOBALS_FROM_SLVC_FULLSCR'
+      IMPORTING
+        e_grid = g_grid.
+  ENDIF.
+
+  CALL METHOD g_grid->register_edit_event
+    EXPORTING
+      i_event_id = cl_gui_alv_grid=>mc_evt_enter
+    EXCEPTIONS
+      error      = 1
+      OTHERS     = 2.
+
+  SET HANDLER gt_event_handler->handler_data_changed FOR g_grid.
+
+  IF sy-subrc <> 0.
+    MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+    WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+  ENDIF.
+ENDFORM. "register_events
