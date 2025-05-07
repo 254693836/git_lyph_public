@@ -128,3 +128,34 @@ ENDLOOP.
 
 cl_demo_output=>display( lt_output ).
 
+DATA: lt_input  TYPE STANDARD TABLE OF ty_input,
+      lt_output TYPE STANDARD TABLE OF ty_output.
+
+" 示例数据
+APPEND VALUE #( a = 'A1' b = 'B1' c = 'C1' d = 100 e = 10 ) TO lt_input.
+APPEND VALUE #( a = 'A1' b = 'B1' c = 'C1' d = 200 e = 20 ) TO lt_input.
+APPEND VALUE #( a = 'A1' b = 'B1' c = 'C2' d = 300 e = 30 ) TO lt_input.
+
+" 分组并同时合计 d 和 e
+LOOP AT lt_input INTO DATA(ls_input)
+     GROUP BY ( a = ls_input-a b = ls_input-b c = ls_input-c )
+     INTO DATA(group).
+
+  DATA(total_d) = REDUCE #( INIT sum = 0
+                            FOR line IN GROUP group
+                            NEXT sum = sum + line-d ).
+
+  DATA(total_e) = REDUCE #( INIT sum = 0
+                            FOR line IN GROUP group
+                            NEXT sum = sum + line-e ).
+
+  APPEND VALUE #( a = group-a
+                  b = group-b
+                  c = group-c
+                  sum_d = total_d
+                  sum_e = total_e ) TO lt_output.
+ENDLOOP.
+
+cl_demo_output=>display( lt_output ).
+
+
