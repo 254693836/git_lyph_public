@@ -1,56 +1,96 @@
-DATA(lt_data) TYPE TABLE OF string.
+TYPES: BEGIN OF ty_input,
+         a TYPE char10,
+         b TYPE char10,
+         c TYPE char10,
+         d TYPE p DECIMALS 2,
+       END OF ty_input.
 
-lt_data = VALUE #( ( `Apple` ) ( `Banana` ) ( `Orange` ) ).
+TYPES: BEGIN OF ty_result,
+         a   TYPE char10,
+         b   TYPE char10,
+         c   TYPE char10,
+         d1  TYPE p DECIMALS 2,
+         d2  TYPE p DECIMALS 2,
+         d3  TYPE p DECIMALS 2,
+       END OF ty_result.
 
-DATA(lt_filtered_data) = VALUE #( FOR wa_data IN lt_data WHERE ( wa_data = 'Banana' ) ( wa_data ) ).
+DATA: lt_input   TYPE STANDARD TABLE OF ty_input,
+      lt_result  TYPE STANDARD TABLE OF ty_result,
+      lt_tmp_d1  TYPE HASHED TABLE OF ty_result WITH UNIQUE KEY a b c,
+      lt_tmp_d2  TYPE HASHED TABLE OF ty_result WITH UNIQUE KEY a b,
+      lt_tmp_d3  TYPE HASHED TABLE OF ty_result WITH UNIQUE KEY a c,
+      ls_input   TYPE ty_input,
+      ls_result  TYPE ty_result.
 
+" 示例数据
+APPEND VALUE #( a = 'A1' b = 'B1' c = 'C1' d = '100.00' ) TO lt_input.
+APPEND VALUE #( a = 'A1' b = 'B1' c = 'C1' d = '150.00' ) TO lt_input.
+APPEND VALUE #( a = 'A1' b = 'B1' c = 'C2' d = '200.00' ) TO lt_input.
+APPEND VALUE #( a = 'A1' b = 'B2' c = 'C1' d = '50.00' ) TO lt_input.
+APPEND VALUE #( a = 'A2' b = 'B1' c = 'C1' d = '80.00' ) TO lt_input.
 
+" Step 1: d1 = 按 a, b, c 分组
+LOOP AT lt_input INTO ls_input.
+  READ TABLE lt_tmp_d1 INTO ls_result WITH TABLE KEY a = ls_input-a b = ls_input-b c = ls_input-c.
+  IF sy-subrc = 0.
+    ls_result-d1 = ls_result-d1 + ls_input-d.
+    MODIFY lt_tmp_d1 FROM ls_result.
+  ELSE.
+    CLEAR ls_result.
+    ls_result-a  = ls_input-a.
+    ls_result-b  = ls_input-b.
+    ls_result-c  = ls_input-c.
+    ls_result-d1 = ls_input-d.
+    APPEND ls_result TO lt_tmp_d1.
+  ENDIF.
+ENDLOOP.
 
-TYPES: BEGIN OF ty_material,
-         matnr TYPE matnr,
-         mtart TYPE mtart,
-         matkl TYPE matkl,
-       END OF ty_material,
-       tt_materials TYPE TABLE OF ty_material WITH EMPTY KEY.
+" Step 2: d2 = 按 a, b 分组，c保持空
+LOOP AT lt_input INTO ls_input.
+  READ TABLE lt_tmp_d2 INTO ls_result WITH TABLE KEY a = ls_input-a b = ls_input-b.
+  IF sy-subrc = 0.
+    ls_result-d2 = ls_result-d2 + ls_input-d.
+    MODIFY lt_tmp_d2 FROM ls_result.
+  ELSE.
+    CLEAR ls_result.
+    ls_result-a  = ls_input-a.
+    ls_result-b  = ls_input-b.
+    ls_result-d2 = ls_input-d.
+    APPEND ls_result TO lt_tmp_d2.
+  ENDIF.
+ENDLOOP.
 
-DATA(materials) = VALUE tt_materials(
-  ( matnr = 'M-001' mtart = 'FERT' matkl = '01' )
-  ( matnr = 'M-002' mtart = 'HALB' matkl = '02' )
-  ( matnr = 'M-003' mtart = 'FERT' matkl = '01' )
-).
+" Step 3: d3 = 按 a, c 分组，b保持空
+LOOP AT lt_input INTO ls_input.
+  READ TABLE lt_tmp_d3 INTO ls_result WITH TABLE KEY a = ls_input-a c = ls_input-c.
+  IF sy-subrc = 0.
+    ls_result-d3 = ls_result-d3 + ls_input-d.
+    MODIFY lt_tmp_d3 FROM ls_result.
+  ELSE.
+    CLEAR ls_result.
+    ls_result-a  = ls_input-a.
+    ls_result-c  = ls_input-c.
+    ls_result-d3 = ls_input-d.
+    APPEND ls_result TO lt_tmp_d3.
+  ENDIF.
+ENDLOOP.
 
-" 条件: mtartが'FERT'の材料のみ抽出
-DATA(fert_materials) = FILTER #( materials WHERE mtart = 'FERT' ).
+" 合并三张临时表为最终结果
+LOOP AT lt_tmp_d1 INTO ls_result.
+  " 取对应的 d2
+  READ TABLE lt_tmp_d2 INTO DATA(ls_d2) WITH TABLE KEY a = ls_result-a b = ls_result-b.
+  IF sy-subrc = 0.
+    ls_result-d2 = ls_d2-d2.
+  ENDIF.
 
-**************************************************************************************
-REPORT ztest_filter_example.
+  " 取对应的 d3
+  READ TABLE lt_tmp_d3 INTO DATA(ls_d3) WITH TABLE KEY a = ls_result-a c = ls_result-c.
+  IF sy-subrc = 0.
+    ls_result-d3 = ls_d3-d3.
+  ENDIF.
 
-TYPES: BEGIN OF ty_material,
-         matnr TYPE matnr,   " 材料番号
-         mtart TYPE mtart,   " 材料タイプ
-         matkl TYPE matkl,   " 材料グループ
-       END OF ty_material,
-       tt_materials TYPE TABLE OF ty_material WITH EMPTY KEY.  " キー定義が重要
+  APPEND ls_result TO lt_result.
+ENDLOOP.
 
-START-OF-SELECTION.
-  " サンプルデータ作成
-  DATA(materials) = VALUE tt_materials(
-    ( matnr = 'M-001' mtart = 'FERT' matkl = '01' )  " 注意: 'FERT'のタイポ？
-    ( matnr = 'M-002' mtart = 'HALB' matkl = '02' )
-    ( matnr = 'M-003' mtart = 'FERT' matkl = '01' )
-  ).
-
-  " 修正1: 完全な型指定でFILTERを使用
-  DATA(fert_materials) = FILTER #(
-    materials
-    WHERE mtart = 'FERT'  " 大文字小文字に注意
-  ).
-
-  " 修正2: 代替方法（FILTERが使えない場合）
-  DATA(fert_materials_alt) = VALUE tt_materials(
-    FOR material IN materials WHERE ( mtart = 'FERT' ) ( material )
-  ).
-
-  " 結果表示
-  cl_demo_output=>display( fert_materials ).
-  cl_demo_output=>display( fert_materials_alt ).
+" 显示最终结果
+cl_demo_output=>display( lt_result ).
