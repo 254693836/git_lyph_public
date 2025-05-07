@@ -94,3 +94,37 @@ ENDLOOP.
 
 " 显示最终结果
 cl_demo_output=>display( lt_result ).
+
+TYPES: BEGIN OF ty_input,
+         a TYPE char10,
+         b TYPE char10,
+         c TYPE char10,
+         d TYPE p DECIMALS 2,
+       END OF ty_input.
+
+TYPES: BEGIN OF ty_output,
+         a TYPE char10,
+         b TYPE char10,
+         c TYPE char10,
+         sum_d TYPE p DECIMALS 2,
+       END OF ty_output.
+
+DATA: lt_input  TYPE STANDARD TABLE OF ty_input,
+      lt_output TYPE STANDARD TABLE OF ty_output.
+
+" 示例数据
+APPEND VALUE #( a = 'A1' b = 'B1' c = 'C1' d = 100 ) TO lt_input.
+APPEND VALUE #( a = 'A1' b = 'B1' c = 'C1' d = 200 ) TO lt_input.
+APPEND VALUE #( a = 'A1' b = 'B1' c = 'C2' d = 300 ) TO lt_input.
+APPEND VALUE #( a = 'A1' b = 'B2' c = 'C1' d = 400 ) TO lt_input.
+
+" 分组并合计
+LOOP AT lt_input INTO DATA(ls_input) GROUP BY ( a = ls_input-a b = ls_input-b c = ls_input-c ) INTO DATA(group).
+  DATA(sum_d) = REDUCE #( INIT total = 0
+                          FOR line IN GROUP group
+                          NEXT total = total + line-d ).
+  APPEND VALUE #( a = group-a b = group-b c = group-c sum_d = sum_d ) TO lt_output.
+ENDLOOP.
+
+cl_demo_output=>display( lt_output ).
+
