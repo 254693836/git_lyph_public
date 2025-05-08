@@ -189,3 +189,32 @@ LOOP AT lt_input INTO DATA(ls_input)
 ENDLOOP.
 
 cl_demo_output=>display( lt_output ).
+
+*********************************************
+LOOP AT lt_input INTO DATA(ls_input)
+     GROUP BY ( a = ls_input-a b = ls_input-b c = ls_input-c )
+     INTO DATA(group).
+
+  " 加 WHERE 条件：只处理 d < 10000 的行
+  DATA(total_d) = REDUCE #( INIT sum = 0
+                            FOR line IN GROUP group WHERE ( d < 10000 )
+                            NEXT sum = sum + line-d ).
+
+  DATA(total_e) = REDUCE #( INIT sum = 0
+                            FOR line IN GROUP group WHERE ( d < 10000 )
+                            NEXT sum = sum + line-e +
+                                          COND #( WHEN line-f = 'X' THEN line-h ELSE 0 ) ).
+
+  APPEND VALUE #( a = group-a
+                  b = group-b
+                  c = group-c
+                  sum_d = total_d
+                  sum_e = total_e ) TO lt_output.
+ENDLOOP.
+
+
+
+
+
+
+
