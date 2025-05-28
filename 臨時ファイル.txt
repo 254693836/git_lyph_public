@@ -211,7 +211,20 @@ LOOP AT lt_input INTO DATA(ls_input)
                   sum_d = total_d
                   sum_e = total_e ) TO lt_output.
 ENDLOOP.
+***************************************************************
+DATA: lv_date     TYPE d VALUE '20200229',
+      lv_new_date TYPE d.
 
+CALL FUNCTION 'RP_CALC_DATE_IN_INTERVAL'
+  EXPORTING
+    date      = lv_date
+    days      = 0
+    months    = 0
+    years     = 1
+  IMPORTING
+    calc_date = lv_new_date.
+
+WRITE: / '加一年后:', lv_new_date.  " 输出 20210228
 
 
 
