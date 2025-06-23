@@ -1,0 +1,90 @@
+package java_study_japanese;
+
+import java.awt.Font;
+import java.awt.GridLayout;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
+import javax.swing.Timer;
+
+public class CsvDisplayForm extends JFrame {
+    private List<String[]> lines = new ArrayList<>();
+    private JLabel label1;
+    private JLabel label2;
+    private int currentIndex = 0;
+
+    public CsvDisplayForm() {
+        setTitle("CSV 表示器");
+        setSize(500, 200);
+        setDefaultCloseOperation(EXIT_ON_CLOSE);
+        setLocationRelativeTo(null);
+        setAlwaysOnTop(true); // 👈 明确不置顶
+
+        // 垂直排列两个 JLabel
+        setLayout(new GridLayout(2, 1));
+
+        label1 = new JLabel("", SwingConstants.CENTER);
+        label1.setFont(new Font("Arial", Font.PLAIN, 24));
+        label2 = new JLabel("", SwingConstants.CENTER);
+        label2.setFont(new Font("Arial", Font.PLAIN, 24));
+
+        add(label1);
+        add(label2);
+
+        loadCsvFile("data.csv");
+        startTimer();
+    }
+
+    private void loadCsvFile(String filename) {
+        try (BufferedReader br = new BufferedReader(new FileReader(filename))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] parts = line.split("\t", 2); // 分割成两部分
+                if (parts.length == 2) {
+                    lines.add(parts);
+                } else {
+                    // 只显示一行时第二行为空
+                    lines.add(new String[]{parts[0], ""});
+                }
+            }
+        } catch (IOException e) {
+            JOptionPane.showMessageDialog(this, "读取CSV失败：" + e.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
+            System.exit(1);
+        }
+    }
+
+    private void startTimer() {
+        if (lines.isEmpty()) {
+            label1.setText("CSV为空");
+            label2.setText("");
+            return;
+        }
+
+        Timer timer = new Timer(3000, new ActionListener() {
+            public void actionPerformed(ActionEvent evt) {
+                String[] line = lines.get(currentIndex);
+                label1.setText(line[0]);
+                label2.setText(line[1]);
+                currentIndex = (currentIndex + 1) % lines.size();
+            }
+        });
+        timer.start();
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> {
+            CsvDisplayForm form = new CsvDisplayForm();
+            form.setVisible(true);
+        });
+    }
+}
