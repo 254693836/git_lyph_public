@@ -1,0 +1,139 @@
+SAP HCM 開発・カスタマイズ資料（Excel用）							
+事管理（PA）、組織管理（OM）、給与計算（PY）、勤怠管理（TM）など。							
+							
+領域	Tcode	用途	Table	内容	User Exit / BADI	用途	トリガー
+PA	PA20	人事情報表示	PA0000	管理データ（開始/終了日）	PEA00001 / HRPAD00IN	人事情報登録時カスタム処理	PA30, PA40
+PA	PA30	人事情報変更/登録	PA0001	組織上の職位データ	HRPAD00EX	インフォタイプ保存前処理	PA30
+PA	PA40	人事異動処理	PA0002	個人情報（氏名、生年月日、性別）	HRPAD00LV	ログ変更時処理	PA30
+PA	PA70	一括人事異動	PA0006	住所データ	HRP1000 (BADI)	組織データ連携	OMやPA異動時
+PA	PA10	個人情報確認	PA0007	コスト配分			
+PA	PA51	インフォタイプ削除	PA0008	基本給与			
+OM	PPOME	組織・職務・ポジション管理	HRP1000	組織オブジェクト	HRPAD00IN (BADI)	OMオブジェクト登録時カスタムチェック	PPOME, PPOCE
+OM	PPOCE	組織・ポジション作成	HRP1001	組織関係（上司・下位・担当）	HRPD0001 (User Exit)	OM保存前処理	PPOME
+OM	PPOSE	組織構造表示	HRP1002	属性情報（オブジェクト属性）	HRP1001 (BADI)	組織関係変更時処理	組織構造変更
+PY	PC00_MXX_CALC	給与計算実行	T549A	給与規則	USEREXIT_CALC_PERSONAL_PAY	個別給与計算処理追加	給与計算実行
+PY	PC00_MXX_CLST	給与明細表示	T511K	給与タイプ	HRPAY00 (BADI)	給与計算カスタマイズ	給与計算
+PY	PU03	給与設定変更	PA0008	基本給与データ	USEREXIT_READ_INFOTYPE	インフォタイプ読み込み時処理	給与計算
+PY	PE51	フォーム作成/変更	PA0014	個別控除データ			
+TM	PT60	勤怠データ確認/給与連携前チェック	PA2001	勤怠データ	PT_OPER_XXXX (User Exit)	勤怠データ入力チェック	PA61, PT60
+TM	PA61	勤怠データ入力	PA2002	労働時間データ	CATSDATA_SAVE (BADI)	CATS 勤怠データ保存処理	CAT2
+TM	PT50	出退勤データ処理	PA2006	時間配分データ	HRPAD00IN (BADI)	勤怠関連派生処理	PT60
+TM	CAT2	勤務時間記録入力	CATSDB	CATS 勤務時間記録			
+TM	CATS_APPR_LITE	勤怠承認					
+1. 人事管理（PA: Personnel Administration）							
+1-1. 主なTcode							
+Tcode	用途	備考					
+PA20	人事情報表示	インフォタイプ単位で表示					
+PA30	人事情報変更/登録	入力画面カスタマイズ対象					
+PA40	人事異動処理	入社・異動・退職・解雇					
+PA70	一括人事異動	複数社員の異動同時登録					
+PA10	個人情報確認	履歴情報参照					
+PA51	インフォタイプ削除	注意：履歴情報も削除可能					
+SE38 / SA38	ABAPレポート実行	標準レポート・カスタムレポート実行					
+1-2. 主なTable							
+Table	内容	コメント					
+PA0000	管理データ（開始/終了日）	基本情報の有効期間管理					
+PA0001	組織上の職位データ	部署、職務、職位					
+PA0002	個人情報	氏名、生年月日、性別					
+PA0006	住所	居住情報・郵便番号					
+PA0007	コスト配分	配属部門や給与配分情報					
+PA0008	基本給与	支給額・通貨単位含む					
+PA0105	補足給与情報	ロールやアカウント情報					
+PA0014	個別控除情報	税・保険など					
+PA0016	時間関連情報	労働時間、休暇関連					
+1-3. よく使うUser Exit / BADI							
+名称	用途	トリガー					
+PAI0010/PEA00001 (User Exit)	人事情報登録時の追加チェック	PA30, PA40					
+HRPAD00IN (BADI)	人事情報入力時のカスタム処理	PA30					
+HRPAD00EX	インフォタイプ保存前処理	PA30					
+HRPAD00LV	ログ変更時処理	PA30					
+HRP1000 (BADI)	組織データ連携	OMやPA異動時					
+1-4. 開発ポイント							
+インフォタイプに応じた拡張（カスタムインフォタイプ、フィールド追加）。							
+入力チェック（必須入力、値範囲チェック）。							
+既存レポートの改修・カスタムレポート作成。							
+2. 組織管理（OM: Organizational Management）							
+2-1. 主なTcode							
+Tcode	用途						
+PPOME	組織・職務・ポジション管理						
+PPOCE	組織・ポジション作成						
+PPOSE	組織構造表示						
+PP01	OMオブジェクト詳細管理						
+SE38/SA38	ABAPレポート実行						
+2-2. 主なTable							
+Table	内容						
+T77S0	組織管理設定						
+HRP1000	組織オブジェクト（部門・職務・ポジション）						
+HRP1001	組織関係（上司・下位・担当）						
+HRP1002	属性情報（オブジェクト属性）						
+HRP1054	テキスト情報（オブジェクト名など）						
+2-3. よく使うUser Exit / BADI							
+名称	用途	トリガー					
+HRPAD00IN (BADI)	OMオブジェクト登録時カスタムチェック	PPOME, PPOCE					
+HRPD0001 (User Exit)	OM保存前処理	PPOME					
+HRP1001 (BADI)	組織関係変更時処理	組織構造変更					
+2-4. 開発ポイント							
+ポジションや組織オブジェクトの自動生成。							
+上下関係の自動設定。							
+組織変更時の派生データ処理（異動連動）。							
+3. 給与計算（PY: Payroll）							
+3-1. 主なTcode							
+Tcode	用途						
+PC00_MXX_CALC	給与計算実行（XXは国コード）						
+PC00_MXX_CLST	給与明細表示						
+PU03	給与設定変更						
+PE51	フォーム（給与明細）作成/変更						
+SE38 / SA38	ABAPレポート実行						
+3-2. 主なTable							
+Table	内容						
+T549A	給与規則						
+T511K	給与タイプ						
+PA0008	基本給与データ						
+PA0014	個別控除データ						
+RT	給与計算結果テーブル						
+RT_PAYRESULT	給与計算詳細						
+3-3. よく使うUser Exit / BADI							
+名称	用途	トリガー					
+USEREXIT_CALC_PERSONAL_PAY	個別給与計算処理追加	給与計算実行					
+HRPAY00 (BADI)	給与計算カスタマイズ	給与計算					
+USEREXIT_READ_INFOTYPE	インフォタイプ読み込み時処理	給与計算					
+3-4. 開発ポイント							
+国別給与規則の拡張。							
+新しい控除・手当の計算ロジック追加。							
+給与明細フォームカスタマイズ。							
+4. 勤怠管理（TM: Time Management）							
+4-1. 主なTcode							
+Tcode	用途						
+PT60	勤怠データ確認/給与連携前チェック						
+PA61	勤怠データ入力						
+PT50	出退勤データ処理						
+CAT2	勤務時間記録入力						
+CATS_APPR_LITE	勤怠承認						
+4-2. 主なTable							
+Table	内容						
+PA2001	勤怠データ						
+PA2002	労働時間データ						
+PA2006	時間配分データ						
+CATSDB	CATS 勤務時間記録						
+4-3. よく使うUser Exit / BADI							
+名称	用途	トリガー					
+PT_OPER_XXXX (User Exit)	勤怠データ入力チェック	PA61, PT60					
+CATSDATA_SAVE (BADI)	CATS 勤怠データ保存処理	CAT2					
+HRPAD00IN (BADI)	勤怠関連派生処理	PT60					
+4-4. 開発ポイント							
+勤怠入力チェック（残業制限、勤務パターン確認）。							
+勤怠データの自動計算・連携。							
+勤怠承認ワークフローのカスタマイズ。							
+5. 全体開発Tips							
+1. ABAP 開発							
+レポート、フォーム、マニュアル更新プログラム、ダイナミック入力チェック。							
+2. 拡張							
+カスタムインフォタイプ作成、フィールド追加、ユーザ定義テーブル。							
+3. BADI/EXIT 選定							
+入力時 → HRPAD00IN							
+保存前 → HRPAD00EX							
+給与計算 → HRPAY00							
+勤怠 → CATSDATA_SAVE							
+4. 連携							
+PA ↔ OM ↔ PY ↔ TM の関連を意識して開発。							
+データ整合性チェック必須。							
