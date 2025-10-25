@@ -1,3 +1,4 @@
+/*lyphtest lyphtest lyphtest lyphtest lyphtest lyphtest lyphtest*/
 TADIR：リポジトリオブジェクトのディレクトリ➡プログラム名など
 
 DD01L：ドメイン
@@ -18,4 +19,5 @@ DD08L：R/3 DD: 関係定義
 DD08T：関係定義テキスト
 DD09C：ABAP: 技術設定のシステム特有な属性
 DD09L：DD: テーブルの技術設定
+
 
