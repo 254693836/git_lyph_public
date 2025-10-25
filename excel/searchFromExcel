@@ -1,3 +1,4 @@
+/*lyphtest lyphtest lyphtest lyphtest lyphtest lyphtest lyphtest*/
 '　★★★★説明★★★★★★★
 ' Sheet1・B2は検索対象フォルダ
 ' Sheet1・B4～13は検索値
@@ -151,4 +152,5 @@ Sub SearchFilesInFolder(ByVal folderPath As String, ByVal searchValues As Object
         SearchFilesInFolder subFolder.Path, searchValues, wsResult
     Next subFolder
 End Sub
+
 
