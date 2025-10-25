@@ -1,3 +1,4 @@
+/*lyphtest lyphtest lyphtest lyphtest lyphtest lyphtest lyphtest*/
 1. ABAP実装のレビュー観点（詳細版）
 (1) 性能・効率
 データベースアクセス最適化
