@@ -1,3 +1,4 @@
+/*lyphtest lyphtest lyphtest lyphtest lyphtest lyphtest lyphtest*/
 SAP HCM 開発・カスタマイズ資料（Excel用）							
 事管理（PA）、組織管理（OM）、給与計算（PY）、勤怠管理（TM）など。							
 							
