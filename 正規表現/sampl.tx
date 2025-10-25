@@ -1,3 +1,4 @@
+/*lyphtest lyphtest lyphtest lyphtest lyphtest lyphtest lyphtest*/
 正規表現	意味 / 用途	例にマッチする文字列
 ^abc	「abc」で始まる	abc123、abcdef
 abc$	「abc」で終わる	123abc、xxxabc
