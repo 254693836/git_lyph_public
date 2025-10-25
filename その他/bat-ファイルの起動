@@ -1,3 +1,4 @@
+/*lyphtest lyphtest lyphtest lyphtest lyphtest lyphtest lyphtest*/
 @echo off
 setlocal
 
@@ -20,3 +21,4 @@ start %fileFrom%%file2%%fileType%
 start C:\xxxx覧.xlsx
 
 endlocal
+
