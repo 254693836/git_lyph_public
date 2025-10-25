@@ -1,3 +1,4 @@
+/*lyphtest lyphtest lyphtest lyphtest lyphtest lyphtest lyphtest*/
 SELECT 
     DD03L.TABNAME||DD03L.FIELDNAME AS ID,
     DD03L.TABNAME,
@@ -27,3 +28,4 @@ LEFT JOIN DD04T ON DD03L.ROLLNAME = DD04T.ROLLNAME
 WHERE     DD03L.TABNAME = 'EKKO'
     AND   DD03L.DATATYPE <> ''
 ORDER BY DD03L.POSITION;
+
