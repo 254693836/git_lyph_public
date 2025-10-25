@@ -1,3 +1,4 @@
+/*lyphtest lyphtest lyphtest lyphtest lyphtest lyphtest lyphtest*/
 @AbapCatalog.sqlViewName: 'ZTESTLIST101'
 @AbapCatalog.compiler.compareFilter: true
 @AbapCatalog.preserveKey: true
@@ -95,3 +96,4 @@ define view ZTEST_LIST_101
       _Material,
       _CompanyCode
 }
+
