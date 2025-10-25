@@ -1,3 +1,4 @@
+/*lyphtest lyphtest lyphtest lyphtest lyphtest lyphtest lyphtest*/
 @AbapCatalog.sqlViewName: 'ZTESTLOEKZVH101'
 @AbapCatalog.compiler.compareFilter: true
 @AbapCatalog.preserveKey: true
@@ -19,3 +20,4 @@ where
       domname    = 'XFELD'
   and ddlanguage = $session.system_language
   and as4local   = 'A'
+
