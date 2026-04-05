@@ -62,3 +62,11 @@ Hello Worrd➡画面で表示する
 参照：https://openui5.hana.ondemand.com/topic/3da5f4be63264db99f2e5b04c5e853db
 SAPUI5参照：https://openui5.hana.ondemand.com/1.97.0/
 
+************************************************************
+実装完了
+・ビルド
+ui5 build
+・ディプロイ
+ui5 build --all
+
+
