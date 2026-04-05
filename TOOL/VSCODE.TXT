@@ -1,0 +1,64 @@
+■node.jsとvscodeの準備
+nodejs:https://nodejs.org/en/
+vscode:https://code.visualstudio.com/
+
+・一、バージョン確認
+node -v
+➡バージョン番号を表示する➡OK
+npm -v
+➡エラー
+※xxxx\npm.ps1を読み込むことができません。
+解決：管理者としてpowershellをopenして
+①"Set-ExecutionPolicy RemoteSigned -Scope CurrentUser"
+②"Y"を回答する
+npm -v
+➡バージョン番号を表示する➡OK
+
+・二、ui5（install、vscodeで）
+npm install --global @ui5/cli
+※extensionでsap fiori toolもinstallした方がいい
+
+・三、フォルダ[app1]を作成して[init]を動きます
+npm init --yes
+
+・四、app1にフォルダ「webapp」を作成する
+
+・五、「app1」下記命令を動いてui5.yamlを作成する
+ui5 init
+
+・六、「webapp」にmanifest.jsonファイルを作成する
+
+{
+    "sap.app": {
+        "id": "sap.ui.demo.walkthrough"
+    }
+}
+
+・七、app1フォルダで下記命令を動いてui5.yamlを更新する(frameworkを更新する)
+ui5 use SAPUI5@latest
+
+・八、webappにindex.htmlを作成する
+
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>SAPUI5 Walkthrogh</title>
+    </head>
+    <body>
+        <dir>Hello Word</dir>
+    </body>
+</html>
+
+・九、serverを起動する，フォルダapp1に書き命令を実行する
+ui5 serve
+※CTRL + C ➡止まります
+
+・十、URL: http://localhost:8080
+URL：http://localhost:8080/index.html
+
+Hello Worrd➡画面で表示する
+
+参照：https://openui5.hana.ondemand.com/topic/3da5f4be63264db99f2e5b04c5e853db
+SAPUI5参照：https://openui5.hana.ondemand.com/1.97.0/
+
