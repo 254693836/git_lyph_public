@@ -1,0 +1,164 @@
+
+*&---------------------------------------------------------------------*
+*& Report Z_ABAP001_EDITABLE_ALV
+*&---------------------------------------------------------------------*
+*& Editable ALV sample: ten business columns, amount calculation, and
+*& a dynamically added PRINT button.
+*&---------------------------------------------------------------------*
+REPORT Z_087_ALV_EDIT002.
+
+TYPE-POOLS: icon.
+
+TYPES: BEGIN OF ty_alv,
+         id         TYPE n LENGTH 4,
+         name       TYPE char30,
+         category   TYPE char15,
+         quantity   TYPE i,
+         unit_price TYPE p LENGTH 10 DECIMALS 2,
+         currency   TYPE waers,
+         amount     TYPE p LENGTH 12 DECIMALS 2,
+         status     TYPE char10,
+         remark     TYPE char40,
+         created_on TYPE datum,
+         celltab    TYPE lvc_t_styl,
+       END OF ty_alv.
+
+DATA: gt_alv  TYPE STANDARD TABLE OF ty_alv WITH EMPTY KEY,
+      go_grid TYPE REF TO cl_gui_alv_grid.
+
+SELECT-OPTIONS s_stat FOR (ty_alv-status) DEFAULT 'EDIT'.
+PARAMETERS p_edit AS CHECKBOX DEFAULT abap_true.
+
+CLASS lcl_event_handler DEFINITION FINAL.
+  PUBLIC SECTION.
+    METHODS:
+      on_toolbar FOR EVENT toolbar OF cl_gui_alv_grid
+        IMPORTING e_object e_interactive,
+      on_user_command FOR EVENT user_command OF cl_gui_alv_grid
+        IMPORTING e_ucomm,
+      on_data_changed FOR EVENT data_changed OF cl_gui_alv_grid
+        IMPORTING er_data_changed.
+ENDCLASS.
+
+CLASS lcl_event_handler IMPLEMENTATION.
+  METHOD on_toolbar.
+    APPEND VALUE stb_button(
+      function  = 'PRINT'
+      icon      = icon_print
+      quickinfo = '印刷'
+      text      = 'Print'
+      butn_type = 0 ) TO e_object->mt_toolbar.
+  ENDMETHOD.
+
+  METHOD on_user_command.
+    CASE e_ucomm.
+      WHEN 'PRINT'.
+        MESSAGE '印刷ボタンが押されました。印刷処理をここに実装してください。xxx' TYPE 'I'.
+    ENDCASE.
+  ENDMETHOD.
+
+  METHOD on_data_changed.
+    LOOP AT er_data_changed->mt_good_cells ASSIGNING FIELD-SYMBOL(<ls_cell>)
+         WHERE fieldname = 'QUANTITY' OR fieldname = 'UNIT_PRICE'.
+      READ TABLE gt_alv ASSIGNING FIELD-SYMBOL(<ls_alv>) INDEX <ls_cell>-row_id.
+      IF sy-subrc = 0.
+        "数量または単価を変更した場合、金額を再計算する
+        <ls_alv>-amount = <ls_alv>-quantity * <ls_alv>-unit_price.
+        er_data_changed->modify_cell(
+          i_row_id    = <ls_cell>-row_id
+          i_fieldname = 'AMOUNT'
+          i_value     = <ls_alv>-amount ).
+      ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
+ENDCLASS.
+
+START-OF-SELECTION.
+  PERFORM prepare_data.
+  PERFORM display_alv.
+
+FORM prepare_data.
+  DATA lt_source TYPE STANDARD TABLE OF ty_alv WITH EMPTY KEY.
+
+  lt_source = VALUE #(
+    ( id = '0001' name = 'ノートPC' category = 'IT機器' quantity = 2
+      unit_price = '120000.00' currency = 'JPY' amount = '240000.00'
+      status = 'FIXED' remark = '確定済み' created_on = sy-datum )
+    ( id = '0002' name = 'モニター' category = 'IT機器' quantity = 3
+      unit_price = '35000.00' currency = 'JPY' amount = '105000.00'
+      status = 'EDIT' remark = '' created_on = sy-datum )
+    ( id = '0003' name = '' category = '' quantity = 0
+      unit_price = '0.00' currency = 'JPY' amount = '0.00'
+      status = 'EDIT' remark = '' created_on = sy-datum )
+    ( id = '0004' name = 'キーボード' category = '周辺機器' quantity = 5
+      unit_price = '0.00' currency = 'JPY' amount = '0.00'
+      status = 'EDIT' remark = '' created_on = sy-datum ) ).
+
+  LOOP AT lt_source INTO DATA(ls_source) WHERE status IN s_stat.
+    PERFORM set_cell_style CHANGING ls_source.
+    APPEND ls_source TO gt_alv.
+  ENDLOOP.
+ENDFORM.
+
+FORM set_cell_style CHANGING cs_alv TYPE ty_alv.
+  "編集可否の条件: 選択画面で編集可、かつステータスが EDIT の行だけ
+  "さらに、初期値（空/0）の項目だけを入力可能にする
+  IF p_edit = abap_false OR cs_alv-status <> 'EDIT'.
+    RETURN.
+  ENDIF.
+
+  IF cs_alv-name IS INITIAL.
+    INSERT VALUE #( fieldname = 'NAME' style = cl_gui_alv_grid=>mc_style_enabled ) INTO TABLE cs_alv-celltab.
+  ENDIF.
+  IF cs_alv-category IS INITIAL.
+    INSERT VALUE #( fieldname = 'CATEGORY' style = cl_gui_alv_grid=>mc_style_enabled ) INTO TABLE cs_alv-celltab.
+  ENDIF.
+  IF cs_alv-quantity IS INITIAL.
+    INSERT VALUE #( fieldname = 'QUANTITY' style = cl_gui_alv_grid=>mc_style_enabled ) INTO TABLE cs_alv-celltab.
+  ENDIF.
+  IF cs_alv-unit_price IS INITIAL.
+    INSERT VALUE #( fieldname = 'UNIT_PRICE' style = cl_gui_alv_grid=>mc_style_enabled ) INTO TABLE cs_alv-celltab.
+  ENDIF.
+  IF cs_alv-currency IS INITIAL.
+    INSERT VALUE #( fieldname = 'CURRENCY' style = cl_gui_alv_grid=>mc_style_enabled ) INTO TABLE cs_alv-celltab.
+  ENDIF.
+  IF cs_alv-remark IS INITIAL.
+    INSERT VALUE #( fieldname = 'REMARK' style = cl_gui_alv_grid=>mc_style_enabled ) INTO TABLE cs_alv-celltab.
+  ENDIF.
+ENDFORM.
+
+FORM display_alv.
+  DATA: lt_fcat    TYPE lvc_t_fcat,
+        ls_layout  TYPE lvc_s_layo,
+        lo_handler TYPE REF TO lcl_event_handler.
+
+  lt_fcat = VALUE #(
+    ( fieldname = 'ID'         coltext = 'ID'       outputlen = 4 )
+    ( fieldname = 'NAME'       coltext = '品名'     outputlen = 30 edit = abap_true )
+    ( fieldname = 'CATEGORY'   coltext = '分類'     outputlen = 15 edit = abap_true )
+    ( fieldname = 'QUANTITY'   coltext = '数量'     outputlen = 10 edit = abap_true )
+    ( fieldname = 'UNIT_PRICE' coltext = '単価'     outputlen = 15 edit = abap_true cfieldname = 'CURRENCY' )
+    ( fieldname = 'CURRENCY'   coltext = '通貨'     outputlen = 5 edit = abap_true )
+    ( fieldname = 'AMOUNT'     coltext = '金額'     outputlen = 18 cfieldname = 'CURRENCY' )
+    ( fieldname = 'STATUS'     coltext = '状態'     outputlen = 10 )
+    ( fieldname = 'REMARK'     coltext = '備考'     outputlen = 40 edit = abap_true )
+    ( fieldname = 'CREATED_ON' coltext = '登録日'   outputlen = 10 ) ).
+
+  ls_layout-stylefname = 'CELLTAB'.
+  ls_layout-zebra = abap_true.
+  ls_layout-cwidth_opt = abap_true.
+
+  CREATE OBJECT go_grid EXPORTING i_parent = cl_gui_container=>default_screen.
+  CREATE OBJECT lo_handler.
+  SET HANDLER lo_handler->on_toolbar      FOR go_grid.
+  SET HANDLER lo_handler->on_user_command FOR go_grid.
+  SET HANDLER lo_handler->on_data_changed FOR go_grid.
+
+  go_grid->register_edit_event( i_event_id = cl_gui_alv_grid=>mc_evt_modified ).
+  go_grid->set_table_for_first_display(
+    EXPORTING is_layout       = ls_layout
+    CHANGING  it_outtab       = gt_alv
+              it_fieldcatalog = lt_fcat ).
+
+  WRITE space.
+ENDFORM.
