@@ -122,6 +122,8 @@ FORM set_cell_style CHANGING cs_alv TYPE ty_alv.
   IF cs_alv-currency IS INITIAL.
     INSERT VALUE #( fieldname = 'CURRENCY' style = cl_gui_alv_grid=>mc_style_enabled ) INTO TABLE cs_alv-celltab.
   ENDIF.
+  "金額は手入力も可能にする
+  INSERT VALUE #( fieldname = 'AMOUNT' style = cl_gui_alv_grid=>mc_style_enabled ) INTO TABLE cs_alv-celltab.
   IF cs_alv-remark IS INITIAL.
     INSERT VALUE #( fieldname = 'REMARK' style = cl_gui_alv_grid=>mc_style_enabled ) INTO TABLE cs_alv-celltab.
   ENDIF.
@@ -139,7 +141,7 @@ FORM display_alv.
     ( fieldname = 'QUANTITY'   coltext = '数量'     outputlen = 10 edit = abap_true )
     ( fieldname = 'UNIT_PRICE' coltext = '単価'     outputlen = 15 edit = abap_true cfieldname = 'CURRENCY' )
     ( fieldname = 'CURRENCY'   coltext = '通貨'     outputlen = 5 edit = abap_true )
-    ( fieldname = 'AMOUNT'     coltext = '金額'     outputlen = 18 cfieldname = 'CURRENCY' )
+    ( fieldname = 'AMOUNT'     coltext = '金額'     outputlen = 18 edit = abap_true cfieldname = 'CURRENCY' )
     ( fieldname = 'STATUS'     coltext = '状態'     outputlen = 10 )
     ( fieldname = 'REMARK'     coltext = '備考'     outputlen = 40 edit = abap_true )
     ( fieldname = 'CREATED_ON' coltext = '登録日'   outputlen = 10 ) ).
