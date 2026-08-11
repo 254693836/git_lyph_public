@@ -64,6 +64,13 @@ CLASS lcl_event_handler IMPLEMENTATION.
       IF sy-subrc = 0.
         "数量または単価を変更した場合、金額を再計算する
         <ls_alv>-amount = <ls_alv>-quantity * <ls_alv>-unit_price.
+
+        IF <ls_alv>-amount > 50000.
+          MESSAGE '金額が50,000を超えるため、該当行は入力不可です。' TYPE 'I'.
+          "入力制限: 50,000超の行は編集不可として扱う
+          RETURN.
+        ENDIF.
+
         er_data_changed->modify_cell(
           i_row_id    = <ls_cell>-row_id
           i_fieldname = 'AMOUNT'
@@ -88,7 +95,7 @@ FORM prepare_data.
       unit_price = '35000.00' currency = 'JPY' amount = '105000.00'
       status = 'EDIT' remark = '' created_on = sy-datum )
     ( id = '0003' name = '' category = '' quantity = 0
-      unit_price = '0.00' currency = 'JPY' amount = '0.00'
+      unit_price = '0.00' currency = 'JPY' amount = '4565.00'
       status = 'EDIT' remark = '' created_on = sy-datum )
     ( id = '0004' name = 'キーボード' category = '周辺機器' quantity = 5
       unit_price = '0.00' currency = 'JPY' amount = '0.00'
@@ -104,6 +111,18 @@ FORM set_cell_style CHANGING cs_alv TYPE ty_alv.
   "編集可否の条件: 選択画面で編集可、かつステータスが EDIT の行だけ
   "さらに、初期値（空/0）の項目だけを入力可能にする
   IF p_edit = abap_false OR cs_alv-status <> 'EDIT'.
+    RETURN.
+  ENDIF.
+
+  "金額が 50,000 を超過した行は、該当行全体を入力不可にする
+  IF cs_alv-amount > 50000.
+    INSERT VALUE #( fieldname = 'NAME'       style = cl_gui_alv_grid=>mc_style_disabled ) INTO TABLE cs_alv-celltab.
+    INSERT VALUE #( fieldname = 'CATEGORY'   style = cl_gui_alv_grid=>mc_style_disabled ) INTO TABLE cs_alv-celltab.
+    INSERT VALUE #( fieldname = 'QUANTITY'   style = cl_gui_alv_grid=>mc_style_disabled ) INTO TABLE cs_alv-celltab.
+    INSERT VALUE #( fieldname = 'UNIT_PRICE' style = cl_gui_alv_grid=>mc_style_disabled ) INTO TABLE cs_alv-celltab.
+    INSERT VALUE #( fieldname = 'CURRENCY'   style = cl_gui_alv_grid=>mc_style_disabled ) INTO TABLE cs_alv-celltab.
+    INSERT VALUE #( fieldname = 'AMOUNT'     style = cl_gui_alv_grid=>mc_style_disabled ) INTO TABLE cs_alv-celltab.
+    INSERT VALUE #( fieldname = 'REMARK'     style = cl_gui_alv_grid=>mc_style_disabled ) INTO TABLE cs_alv-celltab.
     RETURN.
   ENDIF.
 
