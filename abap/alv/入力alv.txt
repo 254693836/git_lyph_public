@@ -7,179 +7,247 @@
 *&---------------------------------------------------------------------*
 REPORT Z_087_ALV_EDIT002.
 
-TYPE-POOLS: icon.
+TYPE-POOLS: ICON.
 
-TYPES: BEGIN OF ty_alv,
-         id         TYPE n LENGTH 4,
-         name       TYPE char30,
-         category   TYPE char15,
-         quantity   TYPE i,
-         unit_price TYPE p LENGTH 10 DECIMALS 2,
-         currency   TYPE waers,
-         amount     TYPE p LENGTH 12 DECIMALS 2,
-         status     TYPE char10,
-         remark     TYPE char40,
-         created_on TYPE datum,
-         celltab    TYPE lvc_t_styl,
-       END OF ty_alv.
+TYPES: BEGIN OF TY_ALV,
+         ID         TYPE N LENGTH 4,
+         NAME       TYPE CHAR30,
+         CATEGORY   TYPE CHAR15,
+         QUANTITY   TYPE I,
+         UNIT_PRICE TYPE P LENGTH 10 DECIMALS 2,
+         CURRENCY   TYPE WAERS,
+         AMOUNT     TYPE P LENGTH 12 DECIMALS 2,
+         STATUS     TYPE CHAR10,
+         REMARK     TYPE CHAR40,
+         CREATED_ON TYPE DATUM,
+         CELLTAB    TYPE LVC_T_STYL,
+       END OF TY_ALV.
 
-DATA: gt_alv  TYPE STANDARD TABLE OF ty_alv WITH EMPTY KEY,
-      go_grid TYPE REF TO cl_gui_alv_grid.
+DATA: GT_ALV  TYPE STANDARD TABLE OF TY_ALV WITH EMPTY KEY,
+      GO_GRID TYPE REF TO CL_GUI_ALV_GRID.
 
-SELECT-OPTIONS s_stat FOR (ty_alv-status) DEFAULT 'EDIT'.
-PARAMETERS p_edit AS CHECKBOX DEFAULT abap_true.
+SELECT-OPTIONS S_STAT FOR (TY_ALV-STATUS) DEFAULT 'EDIT'.
+PARAMETERS P_EDIT AS CHECKBOX DEFAULT ABAP_TRUE.
 
-CLASS lcl_event_handler DEFINITION FINAL.
+CLASS LCL_EVENT_HANDLER DEFINITION FINAL.
   PUBLIC SECTION.
     METHODS:
-      on_toolbar FOR EVENT toolbar OF cl_gui_alv_grid
-        IMPORTING e_object e_interactive,
-      on_user_command FOR EVENT user_command OF cl_gui_alv_grid
-        IMPORTING e_ucomm,
-      on_data_changed FOR EVENT data_changed OF cl_gui_alv_grid
-        IMPORTING er_data_changed.
+      ON_TOOLBAR FOR EVENT TOOLBAR OF CL_GUI_ALV_GRID
+        IMPORTING E_OBJECT E_INTERACTIVE,
+      ON_USER_COMMAND FOR EVENT USER_COMMAND OF CL_GUI_ALV_GRID
+        IMPORTING E_UCOMM,
+      ON_DATA_CHANGED FOR EVENT DATA_CHANGED OF CL_GUI_ALV_GRID
+        IMPORTING ER_DATA_CHANGED.
 ENDCLASS.
 
-CLASS lcl_event_handler IMPLEMENTATION.
-  METHOD on_toolbar.
-    APPEND VALUE stb_button(
-      function  = 'PRINT'
-      icon      = icon_print
-      quickinfo = '印刷'
-      text      = 'Print'
-      butn_type = 0 ) TO e_object->mt_toolbar.
+CLASS LCL_EVENT_HANDLER IMPLEMENTATION.
+  METHOD ON_TOOLBAR.
+    APPEND VALUE STB_BUTTON(
+      FUNCTION  = 'PRINT'
+      ICON      = ICON_PRINT
+      QUICKINFO = '印刷'
+      TEXT      = 'Print'
+      BUTN_TYPE = 0 ) TO E_OBJECT->MT_TOOLBAR.
   ENDMETHOD.
 
-  METHOD on_user_command.
-    CASE e_ucomm.
+  METHOD ON_USER_COMMAND.
+    CASE E_UCOMM.
       WHEN 'PRINT'.
-        MESSAGE '印刷ボタンが押されました。印刷処理をここに実装してください。xxx' TYPE 'I'.
+*        MESSAGE '印刷ボタンが押されました。印刷処理をここに実装してください。xxx' TYPE 'I'.
+        PERFORM PRINT_SMARTFORM.
     ENDCASE.
   ENDMETHOD.
 
-  METHOD on_data_changed.
-    LOOP AT er_data_changed->mt_good_cells ASSIGNING FIELD-SYMBOL(<ls_cell>)
-         WHERE fieldname = 'QUANTITY' OR fieldname = 'UNIT_PRICE'.
-      READ TABLE gt_alv ASSIGNING FIELD-SYMBOL(<ls_alv>) INDEX <ls_cell>-row_id.
-      IF sy-subrc = 0.
+  METHOD ON_DATA_CHANGED.
+    LOOP AT ER_DATA_CHANGED->MT_GOOD_CELLS ASSIGNING FIELD-SYMBOL(<LS_CELL>)
+         WHERE FIELDNAME = 'QUANTITY' OR FIELDNAME = 'UNIT_PRICE'.
+      READ TABLE GT_ALV ASSIGNING FIELD-SYMBOL(<LS_ALV>) INDEX <LS_CELL>-ROW_ID.
+      IF SY-SUBRC = 0.
         "数量または単価を変更した場合、金額を再計算する
-        <ls_alv>-amount = <ls_alv>-quantity * <ls_alv>-unit_price.
+        <LS_ALV>-AMOUNT = <LS_ALV>-QUANTITY * <LS_ALV>-UNIT_PRICE.
 
-        IF <ls_alv>-amount > 50000.
+        IF <LS_ALV>-AMOUNT > 50000.
           MESSAGE '金額が50,000を超えるため、該当行は入力不可です。' TYPE 'I'.
           "入力制限: 50,000超の行は編集不可として扱う
           RETURN.
         ENDIF.
 
-        er_data_changed->modify_cell(
-          i_row_id    = <ls_cell>-row_id
-          i_fieldname = 'AMOUNT'
-          i_value     = <ls_alv>-amount ).
+        ER_DATA_CHANGED->MODIFY_CELL(
+          I_ROW_ID    = <LS_CELL>-ROW_ID
+          I_FIELDNAME = 'AMOUNT'
+          I_VALUE     = <LS_ALV>-AMOUNT ).
       ENDIF.
     ENDLOOP.
   ENDMETHOD.
 ENDCLASS.
 
 START-OF-SELECTION.
-  PERFORM prepare_data.
-  PERFORM display_alv.
+  PERFORM PREPARE_DATA.
+  PERFORM DISPLAY_ALV.
 
-FORM prepare_data.
-  DATA lt_source TYPE STANDARD TABLE OF ty_alv WITH EMPTY KEY.
+FORM PREPARE_DATA.
+  DATA LT_SOURCE TYPE STANDARD TABLE OF TY_ALV WITH EMPTY KEY.
 
-  lt_source = VALUE #(
-    ( id = '0001' name = 'ノートPC' category = 'IT機器' quantity = 2
-      unit_price = '120000.00' currency = 'JPY' amount = '240000.00'
-      status = 'FIXED' remark = '確定済み' created_on = sy-datum )
-    ( id = '0002' name = 'モニター' category = 'IT機器' quantity = 3
-      unit_price = '35000.00' currency = 'JPY' amount = '105000.00'
-      status = 'EDIT' remark = '' created_on = sy-datum )
-    ( id = '0003' name = '' category = '' quantity = 0
-      unit_price = '0.00' currency = 'JPY' amount = '4565.00'
-      status = 'EDIT' remark = '' created_on = sy-datum )
-    ( id = '0004' name = 'キーボード' category = '周辺機器' quantity = 5
-      unit_price = '0.00' currency = 'JPY' amount = '0.00'
-      status = 'EDIT' remark = '' created_on = sy-datum ) ).
+  LT_SOURCE = VALUE #(
+    ( ID = '0001' NAME = 'ノートPC' CATEGORY = 'IT機器' QUANTITY = 2
+      UNIT_PRICE = '120000.00' CURRENCY = 'JPY' AMOUNT = '240000.00'
+      STATUS = 'FIXED' REMARK = '確定済み' CREATED_ON = SY-DATUM )
+    ( ID = '0002' NAME = 'モニター' CATEGORY = 'IT機器' QUANTITY = 3
+      UNIT_PRICE = '35000.00' CURRENCY = 'JPY' AMOUNT = '105000.00'
+      STATUS = 'EDIT' REMARK = '' CREATED_ON = SY-DATUM )
+    ( ID = '0003' NAME = '' CATEGORY = '' QUANTITY = 0
+      UNIT_PRICE = '0.00' CURRENCY = 'JPY' AMOUNT = '4565.00'
+      STATUS = 'EDIT' REMARK = '' CREATED_ON = SY-DATUM )
+    ( ID = '0004' NAME = 'キーボード' CATEGORY = '周辺機器' QUANTITY = 5
+      UNIT_PRICE = '0.00' CURRENCY = 'JPY' AMOUNT = '0.00'
+      STATUS = 'EDIT' REMARK = '' CREATED_ON = SY-DATUM ) ).
 
-  LOOP AT lt_source INTO DATA(ls_source) WHERE status IN s_stat.
-    PERFORM set_cell_style CHANGING ls_source.
-    APPEND ls_source TO gt_alv.
+  LOOP AT LT_SOURCE INTO DATA(LS_SOURCE) WHERE STATUS IN S_STAT.
+    PERFORM SET_CELL_STYLE CHANGING LS_SOURCE.
+    APPEND LS_SOURCE TO GT_ALV.
   ENDLOOP.
 ENDFORM.
 
-FORM set_cell_style CHANGING cs_alv TYPE ty_alv.
+FORM SET_CELL_STYLE CHANGING CS_ALV TYPE TY_ALV.
   "編集可否の条件: 選択画面で編集可、かつステータスが EDIT の行だけ
   "さらに、初期値（空/0）の項目だけを入力可能にする
-  IF p_edit = abap_false OR cs_alv-status <> 'EDIT'.
+  IF P_EDIT = ABAP_FALSE OR CS_ALV-STATUS <> 'EDIT'.
     RETURN.
   ENDIF.
 
   "金額が 50,000 を超過した行は、該当行全体を入力不可にする
-  IF cs_alv-amount > 50000.
-    INSERT VALUE #( fieldname = 'NAME'       style = cl_gui_alv_grid=>mc_style_disabled ) INTO TABLE cs_alv-celltab.
-    INSERT VALUE #( fieldname = 'CATEGORY'   style = cl_gui_alv_grid=>mc_style_disabled ) INTO TABLE cs_alv-celltab.
-    INSERT VALUE #( fieldname = 'QUANTITY'   style = cl_gui_alv_grid=>mc_style_disabled ) INTO TABLE cs_alv-celltab.
-    INSERT VALUE #( fieldname = 'UNIT_PRICE' style = cl_gui_alv_grid=>mc_style_disabled ) INTO TABLE cs_alv-celltab.
-    INSERT VALUE #( fieldname = 'CURRENCY'   style = cl_gui_alv_grid=>mc_style_disabled ) INTO TABLE cs_alv-celltab.
-    INSERT VALUE #( fieldname = 'AMOUNT'     style = cl_gui_alv_grid=>mc_style_disabled ) INTO TABLE cs_alv-celltab.
-    INSERT VALUE #( fieldname = 'REMARK'     style = cl_gui_alv_grid=>mc_style_disabled ) INTO TABLE cs_alv-celltab.
+  IF CS_ALV-AMOUNT > 50000.
+    INSERT VALUE #( FIELDNAME = 'NAME'       STYLE = CL_GUI_ALV_GRID=>MC_STYLE_DISABLED ) INTO TABLE CS_ALV-CELLTAB.
+    INSERT VALUE #( FIELDNAME = 'CATEGORY'   STYLE = CL_GUI_ALV_GRID=>MC_STYLE_DISABLED ) INTO TABLE CS_ALV-CELLTAB.
+    INSERT VALUE #( FIELDNAME = 'QUANTITY'   STYLE = CL_GUI_ALV_GRID=>MC_STYLE_DISABLED ) INTO TABLE CS_ALV-CELLTAB.
+    INSERT VALUE #( FIELDNAME = 'UNIT_PRICE' STYLE = CL_GUI_ALV_GRID=>MC_STYLE_DISABLED ) INTO TABLE CS_ALV-CELLTAB.
+    INSERT VALUE #( FIELDNAME = 'CURRENCY'   STYLE = CL_GUI_ALV_GRID=>MC_STYLE_DISABLED ) INTO TABLE CS_ALV-CELLTAB.
+    INSERT VALUE #( FIELDNAME = 'AMOUNT'     STYLE = CL_GUI_ALV_GRID=>MC_STYLE_DISABLED ) INTO TABLE CS_ALV-CELLTAB.
+    INSERT VALUE #( FIELDNAME = 'REMARK'     STYLE = CL_GUI_ALV_GRID=>MC_STYLE_DISABLED ) INTO TABLE CS_ALV-CELLTAB.
     RETURN.
   ENDIF.
 
-  IF cs_alv-name IS INITIAL.
-    INSERT VALUE #( fieldname = 'NAME' style = cl_gui_alv_grid=>mc_style_enabled ) INTO TABLE cs_alv-celltab.
+  IF CS_ALV-NAME IS INITIAL.
+    INSERT VALUE #( FIELDNAME = 'NAME' STYLE = CL_GUI_ALV_GRID=>MC_STYLE_ENABLED ) INTO TABLE CS_ALV-CELLTAB.
   ENDIF.
-  IF cs_alv-category IS INITIAL.
-    INSERT VALUE #( fieldname = 'CATEGORY' style = cl_gui_alv_grid=>mc_style_enabled ) INTO TABLE cs_alv-celltab.
+  IF CS_ALV-CATEGORY IS INITIAL.
+    INSERT VALUE #( FIELDNAME = 'CATEGORY' STYLE = CL_GUI_ALV_GRID=>MC_STYLE_ENABLED ) INTO TABLE CS_ALV-CELLTAB.
   ENDIF.
-  IF cs_alv-quantity IS INITIAL.
-    INSERT VALUE #( fieldname = 'QUANTITY' style = cl_gui_alv_grid=>mc_style_enabled ) INTO TABLE cs_alv-celltab.
+  IF CS_ALV-QUANTITY IS INITIAL.
+    INSERT VALUE #( FIELDNAME = 'QUANTITY' STYLE = CL_GUI_ALV_GRID=>MC_STYLE_ENABLED ) INTO TABLE CS_ALV-CELLTAB.
   ENDIF.
-  IF cs_alv-unit_price IS INITIAL.
-    INSERT VALUE #( fieldname = 'UNIT_PRICE' style = cl_gui_alv_grid=>mc_style_enabled ) INTO TABLE cs_alv-celltab.
+  IF CS_ALV-UNIT_PRICE IS INITIAL.
+    INSERT VALUE #( FIELDNAME = 'UNIT_PRICE' STYLE = CL_GUI_ALV_GRID=>MC_STYLE_ENABLED ) INTO TABLE CS_ALV-CELLTAB.
   ENDIF.
-  IF cs_alv-currency IS INITIAL.
-    INSERT VALUE #( fieldname = 'CURRENCY' style = cl_gui_alv_grid=>mc_style_enabled ) INTO TABLE cs_alv-celltab.
+  IF CS_ALV-CURRENCY IS INITIAL.
+    INSERT VALUE #( FIELDNAME = 'CURRENCY' STYLE = CL_GUI_ALV_GRID=>MC_STYLE_ENABLED ) INTO TABLE CS_ALV-CELLTAB.
   ENDIF.
   "金額は手入力も可能にする
-  INSERT VALUE #( fieldname = 'AMOUNT' style = cl_gui_alv_grid=>mc_style_enabled ) INTO TABLE cs_alv-celltab.
-  IF cs_alv-remark IS INITIAL.
-    INSERT VALUE #( fieldname = 'REMARK' style = cl_gui_alv_grid=>mc_style_enabled ) INTO TABLE cs_alv-celltab.
+  INSERT VALUE #( FIELDNAME = 'AMOUNT' STYLE = CL_GUI_ALV_GRID=>MC_STYLE_ENABLED ) INTO TABLE CS_ALV-CELLTAB.
+  IF CS_ALV-REMARK IS INITIAL.
+    INSERT VALUE #( FIELDNAME = 'REMARK' STYLE = CL_GUI_ALV_GRID=>MC_STYLE_ENABLED ) INTO TABLE CS_ALV-CELLTAB.
   ENDIF.
 ENDFORM.
 
-FORM display_alv.
-  DATA: lt_fcat    TYPE lvc_t_fcat,
-        ls_layout  TYPE lvc_s_layo,
-        lo_handler TYPE REF TO lcl_event_handler.
+FORM DISPLAY_ALV.
+  DATA: LT_FCAT    TYPE LVC_T_FCAT,
+        LS_LAYOUT  TYPE LVC_S_LAYO,
+        LO_HANDLER TYPE REF TO LCL_EVENT_HANDLER.
 
-  lt_fcat = VALUE #(
-    ( fieldname = 'ID'         coltext = 'ID'       outputlen = 4 )
-    ( fieldname = 'NAME'       coltext = '品名'     outputlen = 30 edit = abap_true )
-    ( fieldname = 'CATEGORY'   coltext = '分類'     outputlen = 15 edit = abap_true )
-    ( fieldname = 'QUANTITY'   coltext = '数量'     outputlen = 10 edit = abap_true )
-    ( fieldname = 'UNIT_PRICE' coltext = '単価'     outputlen = 15 edit = abap_true cfieldname = 'CURRENCY' )
-    ( fieldname = 'CURRENCY'   coltext = '通貨'     outputlen = 5 edit = abap_true )
-    ( fieldname = 'AMOUNT'     coltext = '金額'     outputlen = 18 edit = abap_true cfieldname = 'CURRENCY' )
-    ( fieldname = 'STATUS'     coltext = '状態'     outputlen = 10 )
-    ( fieldname = 'REMARK'     coltext = '備考'     outputlen = 40 edit = abap_true )
-    ( fieldname = 'CREATED_ON' coltext = '登録日'   outputlen = 10 ) ).
+  LT_FCAT = VALUE #(
+    ( FIELDNAME = 'ID'         COLTEXT = 'ID'       OUTPUTLEN = 4 )
+    ( FIELDNAME = 'NAME'       COLTEXT = '品名'     OUTPUTLEN = 30 EDIT = ABAP_TRUE )
+    ( FIELDNAME = 'CATEGORY'   COLTEXT = '分類'     OUTPUTLEN = 15 EDIT = ABAP_TRUE )
+    ( FIELDNAME = 'QUANTITY'   COLTEXT = '数量'     OUTPUTLEN = 10 EDIT = ABAP_TRUE )
+    ( FIELDNAME = 'UNIT_PRICE' COLTEXT = '単価'     OUTPUTLEN = 15 EDIT = ABAP_TRUE CFIELDNAME = 'CURRENCY' )
+    ( FIELDNAME = 'CURRENCY'   COLTEXT = '通貨'     OUTPUTLEN = 5 EDIT = ABAP_TRUE )
+    ( FIELDNAME = 'AMOUNT'     COLTEXT = '金額'     OUTPUTLEN = 18 EDIT = ABAP_TRUE CFIELDNAME = 'CURRENCY' )
+    ( FIELDNAME = 'STATUS'     COLTEXT = '状態'     OUTPUTLEN = 10 )
+    ( FIELDNAME = 'REMARK'     COLTEXT = '備考'     OUTPUTLEN = 40 EDIT = ABAP_TRUE )
+    ( FIELDNAME = 'CREATED_ON' COLTEXT = '登録日'   OUTPUTLEN = 10 ) ).
 
-  ls_layout-stylefname = 'CELLTAB'.
-  ls_layout-zebra = abap_true.
-  ls_layout-cwidth_opt = abap_true.
+  LS_LAYOUT-STYLEFNAME = 'CELLTAB'.
+  LS_LAYOUT-ZEBRA = ABAP_TRUE.
+  LS_LAYOUT-CWIDTH_OPT = ABAP_TRUE.
 
-  CREATE OBJECT go_grid EXPORTING i_parent = cl_gui_container=>default_screen.
-  CREATE OBJECT lo_handler.
-  SET HANDLER lo_handler->on_toolbar      FOR go_grid.
-  SET HANDLER lo_handler->on_user_command FOR go_grid.
-  SET HANDLER lo_handler->on_data_changed FOR go_grid.
+  CREATE OBJECT GO_GRID EXPORTING I_PARENT = CL_GUI_CONTAINER=>DEFAULT_SCREEN.
+  CREATE OBJECT LO_HANDLER.
+  SET HANDLER LO_HANDLER->ON_TOOLBAR      FOR GO_GRID.
+  SET HANDLER LO_HANDLER->ON_USER_COMMAND FOR GO_GRID.
+  SET HANDLER LO_HANDLER->ON_DATA_CHANGED FOR GO_GRID.
 
-  go_grid->register_edit_event( i_event_id = cl_gui_alv_grid=>mc_evt_modified ).
-  go_grid->set_table_for_first_display(
-    EXPORTING is_layout       = ls_layout
-    CHANGING  it_outtab       = gt_alv
-              it_fieldcatalog = lt_fcat ).
+  GO_GRID->REGISTER_EDIT_EVENT( I_EVENT_ID = CL_GUI_ALV_GRID=>MC_EVT_MODIFIED ).
+  GO_GRID->SET_TABLE_FOR_FIRST_DISPLAY(
+    EXPORTING IS_LAYOUT       = LS_LAYOUT
+    CHANGING  IT_OUTTAB       = GT_ALV
+              IT_FIELDCATALOG = LT_FCAT ).
 
-  WRITE space.
+  WRITE SPACE.
+ENDFORM.
+
+
+FORM PRINT_SMARTFORM.
+
+  DATA:
+    LV_FM_NAME TYPE RS38L_FNAM.
+
+  DATA:
+    LS_CONTROL TYPE SSFCTRLOP.
+
+  DATA:
+    LS_OUTPUT TYPE SSFCOMPOP.
+
+  DATA:
+    LS_JOB_OUTPUT TYPE SSFCRESCL.
+
+
+  " Smart FormsのFM取得
+  CALL FUNCTION 'SSF_FUNCTION_MODULE_NAME'
+    EXPORTING
+      FORMNAME           = 'Z_SF087_GY01'
+    IMPORTING
+      FM_NAME            = LV_FM_NAME
+    EXCEPTIONS
+      NO_FORM            = 1
+      NO_FUNCTION_MODULE = 2
+      OTHERS             = 3.
+
+  IF SY-SUBRC <> 0.
+    MESSAGE 'Smart Formsが見つかりません' TYPE 'E'.
+  ENDIF.
+
+
+  "--------------------------------------------------
+  " Smart Forms設定
+  "--------------------------------------------------
+  CLEAR LS_CONTROL.
+  CLEAR LS_OUTPUT.
+
+  LS_CONTROL-PREVIEW = 'X'.
+
+
+  "--------------------------------------------------
+  " Smart Forms実行
+  "--------------------------------------------------
+  CALL FUNCTION LV_FM_NAME
+    EXPORTING
+      CONTROL_PARAMETERS = LS_CONTROL
+      OUTPUT_OPTIONS     = LS_OUTPUT
+      USER_SETTINGS      = SPACE
+*     gs_002             = gs_002
+    IMPORTING
+      JOB_OUTPUT_INFO    = LS_JOB_OUTPUT
+*  TABLES
+*     gt_001             = gt_001
+    EXCEPTIONS
+      FORMATTING_ERROR   = 1
+      INTERNAL_ERROR     = 2
+      SEND_ERROR         = 3
+      USER_CANCELED      = 4
+      OTHERS             = 5.
+
+  IF SY-SUBRC <> 0.
+    MESSAGE 'Smart Formsエラー' TYPE 'E'.
+  ENDIF.
+
 ENDFORM.
